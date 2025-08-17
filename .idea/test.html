@@ -1,0 +1,2692 @@
+<!--
+ * Copyright (c) Pyrmont Brewery 2025
+ * Author: Kevin Staunton-Lambert
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+-->
+<html>
+<head>
+    <title>Arpy WebMIDI Arpeggiator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="kasm_WASM_rust.js"></script>
+    <script src="kasm_webmidi.js"></script>
+</head>
+
+<body>
+<h1>Arpy WebMIDI Arpeggiator</h1>
+<div style="margin: 20px 0;">
+    <div style="margin: 10px 0; padding: 10px; background: #f9f9f9;">
+        Connect to your MIDI device... (you might need a <a href="https://help.ableton.com/hc/en-us/articles/209774225-Setting-up-a-virtual-MIDI-bus
+" target="_blank">virtual MIDI bus</a>)
+        <div style="margin-bottom: 10px;">
+            <label>
+                <select id="midiOutputSelect" style="padding: 3px; margin-left: 10px;">
+                    <option value="">Select MIDI Device...</option>
+                </select>
+            </label>
+            <button id="refreshMidiDevices" style="margin-left: 10px; padding: 3px 8px;">&lt;</button>
+            <label>MIDI Channel:
+                <select id="midiChannel" width="50" style="padding: 3px; width: 40px; margin-left: 20px;">
+                    <option value="0">1</option>
+                    <option value="1">2</option>
+                    <option value="2">3</option>
+                    <option value="3">4</option>
+                    <option value="4">5</option>
+                    <option value="5">6</option>
+                    <option value="6">7</option>
+                    <option value="7">8</option>
+                    <option value="8">9</option>
+                    <option value="9">10</option>
+                    <option value="10">11</option>
+                    <option value="11">12</option>
+                    <option value="12">13</option>
+                    <option value="13">14</option>
+                    <option value="14">15</option>
+                    <option value="15">16</option>
+                </select>
+            </label>
+            <button id="playMidi"
+                    style="padding: 5px 15px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">&gt;
+            </button>
+            <button id="stopMidi"
+                    style="padding: 5px 15px; background: #f44336; color: white; border: none; cursor: pointer; margin-left: 10px;">!
+            </button>
+            <span id="playbackStatus" style="margin-left: 15px; font-weight: bold;"></span>
+        </div>
+    </div>
+
+    <canvas id="kasmHTMLCanvas" width="150" height="150" style="
+        width: 150px;
+        height: 150px;
+        border: 2px solid #333;
+        background: #000;
+        display: block;
+        margin: 10px 0;
+    "></canvas>
+
+    <div style="margin: 20px 0;">
+        <div style="margin: 10px 0; padding: 10px; background: #f9f9f9;">
+
+                <select id="inlet_5_emanator" onchange="autoTransform()" style="padding: 3px;">
+                    <option value="1">arp:Up Classic ascending arpeggiator - plays held notes f</option>
+                    <option value="2">arp:Down Classic descending arpeggiator - plays held notes </option>
+                    <option value="3">arp:Up/Down Pendulum arpeggiator - ascends then descends witho</option>
+                    <option value="4">arp:Down/Up Reverse pendulum arpeggiator - descends then ascen</option>
+                    <option value="5">arp:Random Random arpeggiator - plays held notes in random or</option>
+                    <option value="6">arp:Flow Flow arpeggiator - plays notes in the exact order </option>
+                    <option value="7">arp:Up In Converging inward - alternates outer notes moving </option>
+                    <option value="8">arp:Down In Converging inward from high - starts high and conv</option>
+                    <option value="9">arp:Expanding Up Expanding outward from center with upward preferen</option>
+                    <option value="10">arp:Expanding Down Expanding outward from center with downward prefer</option>
+                    <option value="11">arp:Low and Up Alternates lowest note with ascending sequence (St</option>
+                    <option value="12">arp:Low and Down Alternates lowest note with descending sequence (S</option>
+                    <option value="13">arp:Hi and Up Alternates highest note with ascending sequence (S</option>
+                    <option value="14">arp:Hi and Down Alternates highest note with descending sequence (</option>
+                    <option value="15">arp:Chord Strum Plays all held notes simultaneously as a chord</option>
+                    <option value="16">arp:Octave Spread Octave spreading - plays root note across multiple</option>
+                </select>
+            </label>
+            <br/>
+            <label>Tempo (BPM):
+                <input type="number" id="tempo" value="120" min="20" max="999" style="width: 100px;">
+            </label>
+        </div>
+    </div>
+
+    <div style="margin: 20px 0;">
+        <div style="margin: 10px 0; padding: 10px; background: #f9f9f9;">
+            <div style="margin: 10px 0;">
+                <!-- Root Note input with MIDI name and dial -->
+                <div style="display: inline-block; margin: 10px; text-align: center;">
+                    <label>Root Note<br/>(inlet_0):</label><br>
+                    <div class="dial-container"
+                         style="position: relative; width: 60px; height: 60px; margin: 5px auto;">
+                        <svg width="60" height="60" class="dial-svg">
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#333" stroke-width="2"/>
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#0af" stroke-width="3"
+                                    stroke-dasharray="157" stroke-dashoffset="157" id="note-progress"
+                                    transform="rotate(-90 30 30)" stroke-linecap="round"/>
+                            <line x1="30" y1="10" x2="30" y2="18" stroke="#0af" stroke-width="2" id="note-pointer"
+                                  transform="rotate(0 30 30)"/>
+                        </svg>
+                        <input type="range" id="note-dial" min="0" max="127" value="60"
+                               style="position: absolute; top: 0; left: 0; width: 60px; height: 60px; opacity: 0; cursor: pointer;"
+                               onchange="updateDial('note', this.value); updateNoteDisplay(); autoTransform()"
+                               oninput="updateDial('note', this.value); updateNoteDisplay(); autoTransform()">
+                    </div>
+                    <div style="margin: 5px auto; width: 120px;">
+                        <input type="number" id="note" value="60" min="0" max="127"
+                               style="width: 60px; margin-right: 5px;"
+                               onchange="updateDial('note', this.value); updateNoteDisplay(); autoTransform()"
+                               oninput="updateDial('note', this.value); updateNoteDisplay(); autoTransform()">
+                        <input type="text" id="noteName" value="C4"
+                               style="width: 45px; text-align: center; font-size: 12px; color: #666; padding: 2px;"
+                               onblur="updateNoteFromName()"
+                               onkeydown="handleNoteNameKeydown(event)"
+                               title="Type note name (e.g. C4, F#3, Bb5)">
+                    </div>
+                </div>
+
+                <!-- Semitone with dial and number input -->
+                <div style="display: inline-block; margin: 10px; text-align: center;">
+                    <label id="inlet_1_label">Semitone offset<br/>(inlet_1)</label><br>
+                    <div class="dial-container"
+                         style="position: relative; width: 60px; height: 60px; margin: 5px auto;">
+                        <svg width="60" height="60" class="dial-svg">
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#333" stroke-width="2"/>
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#0af" stroke-width="3"
+                                    stroke-dasharray="157" stroke-dashoffset="157" id="semitone-progress"
+                                    transform="rotate(-90 30 30)" stroke-linecap="round"/>
+                            <line x1="30" y1="10" x2="30" y2="18" stroke="#0af" stroke-width="2"
+                                  id="semitone-pointer"
+                                  transform="rotate(0 30 30)"/>
+                        </svg>
+                        <input type="range" id="semitone-dial" min="-127" max="127" value="0"
+                               style="position: absolute; top: 0; left: 0; width: 60px; height: 60px; opacity: 0; cursor: pointer;"
+                               onchange="updateDial('semitone', this.value); autoTransform();"
+                               oninput="updateDial('semitone', this.value); autoTransform()">
+                    </div>
+                    <input type="number" id="semitone" value="0" min="-127" max="127"
+                           style="width: 60px; text-align: center;"
+                           onchange="updateDial('Looper  Bangaz  Arpeggiator  Shuffle  Emanator  LFO  Taps  Counterpoint  Drum Rack  Chaos!  Resetsemitone', this.value); autoTransform()"
+                           oninput="updateDial('semitone', this.value); autoTransform()">
+                </div>
+
+                <!-- Velocity with dial and number input -->
+                <div style="display: inline-block; margin: 10px; text-align: center;">
+                    <label>Velocity<br/>(inlet_2)</label><br>
+                    <div class="dial-container"
+                         style="position: relative; width: 60px; height: 60px; margin: 5px auto;">
+                        <svg width="60" height="60" class="dial-svg">
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#333" stroke-width="2"/>
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#0af" stroke-width="3"
+                                    stroke-dasharray="157" stroke-dashoffset="157" id="velocity-progress"
+                                    transform="rotate(-90 30 30)" stroke-linecap="round"/>
+                            <line x1="30" y1="10" x2="30" y2="18" stroke="#0af" stroke-width="2"
+                                  id="velocity-pointer"
+                                  transform="rotate(0 30 30)"/>
+                        </svg>
+                        <input type="range" id="velocity-dial" min="0" max="127" value="100"
+                               style="position: absolute; top: 0; left: 0; width: 60px; height: 60px; opacity: 0; cursor: pointer;"
+                               onchange="updateDial('velocity', this.value); autoTransform()"
+                               oninput="updateDial('velocity', this.value); autoTransform()">
+                    </div>
+                    <input type="number" id="velocity" value="100" min="0" max="127"
+                           style="width: 60px; text-align: center;"
+                           onchange="updateDial('velocity', this.value); autoTransform()"
+                           oninput="updateDial('velocity', this.value); autoTransform()">
+                </div>
+
+                <!-- Enc1 with dial and number input -->
+                <div style="display: inline-block; margin: 10px; text-align: center;">
+                    <label>Enc1<br/>(inlet_3)</label><br>
+                    <div class="dial-container"
+                         style="position: relative; width: 60px; height: 60px; margin: 5px auto;">
+                        <svg width="60" height="60" class="dial-svg">
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#333" stroke-width="2"/>
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#0af" stroke-width="3"
+                                    stroke-dasharray="157" stroke-dashoffset="157" id="enc1-progress"
+                                    transform="rotate(-90 30 30)" stroke-linecap="round"/>
+                            <line x1="30" y1="10" x2="30" y2="18" stroke="#0af" stroke-width="2" id="enc1-pointer"
+                                  transform="rotate(0 30 30)"/>
+                        </svg>
+                        <input type="range" id="enc1-dial" min="0" max="127" value="100"
+                               style="position: absolute; top: 0; left: 0; width: 60px; height: 60px; opacity: 0; cursor: pointer;"
+                               onchange="updateDial('enc1', this.value); autoTransform()"
+                               oninput="updateDial('enc1', this.value); autoTransform()">
+                    </div>
+                    <input type="number" id="enc1" value="80" min="0" max="127"
+                           style="width: 60px; text-align: center;"
+                           onchange="updateDial('enc1', this.value); autoTransform()"
+                           oninput="updateDial('enc1', this.value); autoTransform()">
+                </div>
+
+                <!-- Enc2 with dial and number input -->
+                <div style="display: inline-block; margin: 10px; text-align: center;">
+                    <label>Enc2<br/>(inlet_4)</label><br>
+                    <div class="dial-container"
+                         style="position: relative; width: 60px; height: 60px; margin: 5px auto;">
+                        <svg width="60" height="60" class="dial-svg">
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#333" stroke-width="2"/>
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#0af" stroke-width="3"
+                                    stroke-dasharray="157" stroke-dashoffset="157" id="enc2-progress"
+                                    transform="rotate(-90 30 30)" stroke-linecap="round"/>
+                            <line x1="30" y1="10" x2="30" y2="18" stroke="#0af" stroke-width="2" id="enc2-pointer"
+                                  transform="rotate(0 30 30)"/>
+                        </svg>
+                        <input type="range" id="enc2-dial" min="0" max="127" value="50"
+                               style="position: absolute; top: 0; left: 0; width: 60px; height: 60px; opacity: 0; cursor: pointer;"
+                               onchange="updateDial('enc2', this.value); autoTransform()"
+                               oninput="updateDial('enc2', this.value); autoTransform()">
+                    </div>
+                    <input type="number" id="enc2" value="50" min="0" max="127"
+                           style="width: 60px; text-align: center;"
+                           onchange="updateDial('enc2', this.value); autoTransform()"
+                           oninput="updateDial('enc2', this.value); autoTransform()">
+
+
+                </div>
+
+                <!-- Rate with dial and number input -->
+                <div style="display: inline-block; margin: 10px; text-align: center;">
+                    <label>Rate<br/>(ms)</label><br>
+                    <div class="dial-container"
+                         style="position: relative; width: 60px; height: 60px; margin: 5px auto;">
+                        <svg width="60" height="60" class="dial-svg">
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#333" stroke-width="2"/>
+                            <circle cx="30" cy="30" r="25" fill="none" stroke="#0af" stroke-width="3"
+                                    stroke-dasharray="157" stroke-dashoffset="157" id="rate-progress"
+                                    transform="rotate(-90 30 30)" stroke-linecap="round"/>
+                            <line x1="30" y1="10" x2="30" y2="18" stroke="#0af" stroke-width="2" id="rate-pointer"
+                                  transform="rotate(0 30 30)"/>
+                        </svg>
+                        <input type="range" id="rate-dial" min="30" max="1500" value="250"
+                               style="position: absolute; top: 0; left: 0; width: 60px; height: 60px; opacity: 0; cursor: pointer;"
+                               onchange="updateDial('rate', this.value); autoTransform()"
+                               oninput="updateDial('rate', this.value); autoTransform()">
+                    </div>
+                    <input type="number" id="rateMs" value="250" min="30" max="1500"
+                           style="width: 60px; text-align: center;"
+                           onchange="updateDial('rate', this.value); autoTransform()"
+                           oninput="updateDial('rate', this.value); autoTransform()">
+                </div>
+
+                <div style="margin-top: 10px; display: flex; align-items: center;">
+                    <label for="modwheel">Modwheel CC#1</label>
+                    <input type="range" id="modwheel" min="0" max="127" value="0" style="width: 120px; margin-right: 10px;">
+                    <input type="number" id="modwheel-value" min="0" max="127" value="0" style="width: 50px; text-align: center; margin-right: 20px;">
+                    <label for="pan">Pan CC#10</label>
+                    <input type="range" id="pan" min="0" max="127" value="64" style="width: 120px; margin-right: 10px;">
+                    <input type="number" id="pan-value" min="0" max="127" value="64" style="width: 50px; text-align: center;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="chordKeyDetection" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+    <div id="patternDetection" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+    <button id="transformTest"></button>
+
+    <div style="margin-bottom: 20px;">
+        <div id="midiKeyboard" style="
+                border: 2px solid #333;
+                background: #f0f0f0;
+                height: 120px;
+                width: 100%;
+                position: relative;
+                border-radius: 4px;
+                overflow: hidden;
+            ">
+            <svg id="keyboardSvg" width="100%" height="120" style="display: block;">
+                <!-- White keys -->
+                <g id="whiteKeys">
+                    <!-- C -->
+                    <rect x="0" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="0" data-key="a" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="30" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">C</text>
+                    <text x="30" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">a</text>
+
+                    <!-- D -->
+                    <rect x="60" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="2" data-key="s" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="90" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">D</text>
+                    <text x="90" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">s</text>
+
+                    <!-- E -->
+                    <rect x="120" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="4" data-key="d" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="150" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">E</text>
+                    <text x="150" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">d</text>
+
+                    <!-- F -->
+                    <rect x="180" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="5" data-key="f" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="210" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">F</text>
+                    <text x="210" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">f</text>
+
+                    <!-- G -->
+                    <rect x="240" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="7" data-key="g" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="270" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">G</text>
+                    <text x="270" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">g</text>
+
+                    <!-- A -->
+                    <rect x="300" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="9" data-key="h" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="330" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">A</text>
+                    <text x="330" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">h</text>
+
+                    <!-- B -->
+                    <rect x="360" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="11" data-key="j" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="390" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">B</text>
+                    <text x="390" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">j</text>
+
+                    <!-- C (next octave) -->
+                    <rect x="420" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="12" data-key="k" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="450" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">C</text>
+                    <text x="450" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">k</text>
+
+                    <!-- D (next octave) -->
+                    <rect x="480" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="14" data-key="l" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="510" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">D</text>
+                    <text x="510" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">l</text>
+                    <!-- E (next octave) -->
+                    <rect x="540" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="16" data-key=";" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="570" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">E</text>
+                    <text x="570" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">;</text>
+                    <!-- F (next octave) -->
+                    <rect x="600" y="0" width="60" height="120" fill="white" stroke="#333" stroke-width="1"
+                          data-note="17" data-key="'" class="piano-key white-key" rx="0" ry="0"/>
+                    <text x="630" y="110" text-anchor="middle" font-size="12" fill="#666" pointer-events="none">F</text>
+                    <text x="630" y="100" text-anchor="middle" font-size="10" fill="#999" pointer-events="none">'</text>
+                </g>
+
+                <!-- Black keys -->
+                <g id="blackKeys">
+                    <!-- C# -->
+                    <rect x="40" y="0" width="40" height="80" fill="#333" stroke="#000" stroke-width="1"
+                          data-note="1" data-key="w" class="piano-key black-key" rx="0" ry="0"/>
+                    <text x="60" y="70" text-anchor="middle" font-size="10" fill="white" pointer-events="none">C#</text>
+                    <text x="60" y="60" text-anchor="middle" font-size="10" fill="#ccc" pointer-events="none">w</text>
+
+                    <!-- Eb -->
+                    <rect x="100" y="0" width="40" height="80" fill="#333" stroke="#000" stroke-width="1"
+                          data-note="3" data-key="e" class="piano-key black-key" rx="0" ry="0"/>
+                    <text x="120" y="70" text-anchor="middle" font-size="10" fill="white" pointer-events="none">Eb</text>
+                    <text x="120" y="60" text-anchor="middle" font-size="10" fill="#ccc" pointer-events="none">e</text>
+
+                    <!-- F# -->
+                    <rect x="220" y="0" width="40" height="80" fill="#333" stroke="#000" stroke-width="1"
+                          data-note="6" data-key="t" class="piano-key black-key" rx="0" ry="0"/>
+                    <text x="240" y="70" text-anchor="middle" font-size="10" fill="white" pointer-events="none">F#</text>
+                    <text x="240" y="60" text-anchor="middle" font-size="10" fill="#ccc" pointer-events="none">t</text>
+
+                    <!-- G# -->
+                    <rect x="280" y="0" width="40" height="80" fill="#333" stroke="#000" stroke-width="1"
+                          data-note="8" data-key="y" class="piano-key black-key" rx="0" ry="0"/>
+                    <text x="300" y="70" text-anchor="middle" font-size="10" fill="white" pointer-events="none">G#</text>
+                    <text x="300" y="60" text-anchor="middle" font-size="10" fill="#ccc" pointer-events="none">y</text>
+
+                    <!-- Bb -->
+                    <rect x="340" y="0" width="40" height="80" fill="#333" stroke="#000" stroke-width="1"
+                          data-note="10" data-key="u" class="piano-key black-key" rx="0" ry="0"/>
+                    <text x="360" y="70" text-anchor="middle" font-size="10" fill="white" pointer-events="none">Bb</text>
+                    <text x="360" y="60" text-anchor="middle" font-size="10" fill="#ccc" pointer-events="none">u</text>
+
+                    <!-- C# (next octave) -->
+                    <rect x="460" y="0" width="40" height="80" fill="#333" stroke="#000" stroke-width="1"
+                          data-note="13" data-key="o" class="piano-key black-key" rx="0" ry="0"/>
+                    <text x="480" y="70" text-anchor="middle" font-size="10" fill="white" pointer-events="none">C#</text>
+                    <text x="480" y="60" text-anchor="middle" font-size="10" fill="#ccc" pointer-events="none">o</text>
+
+                    <!-- Eb (next octave) -->
+                    <rect x="520" y="0" width="40" height="80" fill="#333" stroke="#000" stroke-width="1"
+                          data-note="15" data-key="p" class="piano-key black-key" rx="0" ry="0"/>
+                    <text x="540" y="70" text-anchor="middle" font-size="10" fill="white" pointer-events="none">Eb</text>
+                    <text x="540" y="60" text-anchor="middle" font-size="10" fill="#ccc" pointer-events="none">p</text>
+
+                    <!-- F# (next octave) -->
+                    <rect x="640" y="0" width="40" height="80" fill="#333" stroke="#000" stroke-width="1"
+                          data-note="20" data-key="]" class="piano-key black-key" rx="0" ry="0"/>
+                    <text x="660" y="70" text-anchor="middle" font-size="10" fill="white" pointer-events="none">F#</text>
+                    <text x="660" y="60" text-anchor="middle" font-size="10" fill="#ccc" pointer-events="none">]</text>
+                </g>
+            </svg>
+        </div>
+        <div>
+            KEYS: Play notes: a-' |
+            Octave: z=down, x=up |
+            Velocity: c=down, v=up
+        </div>
+    </div>
+</div>
+</body>
+
+<script>
+    let inlet = 0;
+    let kasmWebMIDI; // WebMIDI module instance
+    let currentMidiOutput = null;
+
+    // Global timeout variables for debouncing
+    let autoTransformTimeout;
+    let autoPlayTimeout;
+
+    // Global flag to prevent updateBang interference during radio button selections
+    let isRadioButtonSelection = false;
+
+    function post(msg) {
+        console.log(`kasm: post: ${msg}`);
+    }
+
+    function outlet_message(index, msg) {
+        outlet(index, msg, null);
+    }
+
+    function sendMidiData(midiData, pitch, velocity, isCC = false) {
+        if (currentMidiOutput) {
+            currentMidiOutput.send(midiData);
+        } else if (kasmWebMIDI && kasmWebMIDI.currentMidiOutput) {
+            kasmWebMIDI.currentMidiOutput.send(midiData);
+        }
+
+        if (kasm_rust && kasm_rust.update_canvas_data) {
+            kasm_rust.update_canvas_data(pitch, velocity, isCC);
+        }
+    }
+
+    function outlet(index, msg, data) {
+        //console.log(`kasm: outlet: ${index} ` + msg);
+
+        // Send note to WebMIDI
+        if (index === 0) {
+            // Expect msg to be an object: {pitch, velocity, channel, type}
+            const pitch = msg;
+            const velocity = data;
+            const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+
+            if (currentMidiOutput) {
+                if (data && velocity > 0) {
+                    // Note On - highlight the key on SVG keyboard
+                    highlightMidiNoteOnKeyboard(pitch, true);
+
+                    const noteOnMsg = [0x90 + channel, pitch, velocity];
+                    sendMidiData(noteOnMsg, pitch, velocity);
+                    setTimeout(() => {
+                        // Automatically send a note off after 500ms and unhighlight
+                        const noteOffMsg = [0x80 + channel, pitch, 0];
+                        sendMidiData(noteOffMsg, pitch, 0);
+                        highlightMidiNoteOnKeyboard(pitch, false);
+                    }, 500);
+                } else {
+                    // Note Off - unhighlight the key
+                    highlightMidiNoteOnKeyboard(pitch, false);
+
+                    const noteOffMsg = [0x80 + channel, pitch, 0];
+                    sendMidiData(noteOffMsg, pitch, 0);
+                }
+            } else {
+			
+	            if (kasmWebMIDI && velocity > 0) {
+	                // Note On - highlight the key on SVG keyboard
+	                highlightMidiNoteOnKeyboard(pitch, true);
+	                const noteOnMsg = [0x90 + channel, pitch, velocity];
+	                sendMidiData(noteOnMsg, pitch, velocity);
+	                //kasmWebMIDI.sendNoteOn(pitch, velocity, channel);
+
+	                setTimeout(() => {
+	                    // Automatically send a note off after 500ms and unhighlight
+
+	                    const noteOffMsg = [0x80 + channel, pitch, 0];
+	                    sendMidiData(noteOffMsg, pitch, 0);
+	                    //kasmWebMIDI.sendNoteOff(pitch, channel);
+	                    highlightMidiNoteOnKeyboard(pitch, false);
+	                }, 500);
+	            } else if (kasmWebMIDI) {
+	                // Note Off - unhighlight the key
+	                highlightMidiNoteOnKeyboard(pitch, false);
+	                kasmWebMIDI.sendNoteOff(pitch, channel);
+	            } else {
+	                // Even if no MIDI output, still show on keyboard
+	                if (data && velocity > 0) {
+	                    highlightMidiNoteOnKeyboard(pitch, true);
+	                    setTimeout(() => {
+	                        highlightMidiNoteOnKeyboard(pitch, false);
+	                    }, 500);
+	                } else {
+	                    highlightMidiNoteOnKeyboard(pitch, false);
+					
+	                    const noteOffMsg = [0x80 + channel, pitch, 0];
+	                    sendMidiData(noteOffMsg, pitch, 0);
+
+	                }
+	            }
+				
+		        // Send CC change to WebMIDI
+		        if (index === 1) {
+		            const ccNumber = msg;
+		            const ccValue = data;
+		            const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+
+		            if (kasmWebMIDI && typeof ccNumber === 'number' && typeof ccValue === 'number') {
+		                kasmWebMIDI.sendControlChange(ccNumber, ccValue, channel);
+
+		                // Update UI sliders
+		                if (ccNumber === 10) {
+		                    const panSlider = document.getElementById('pan');
+		                    const panValueBox = document.getElementById('pan-value');
+		                    if (panSlider && panValueBox) {
+		                        panSlider.value = ccValue;
+		                        panValueBox.value = ccValue;
+		                    }
+		                }
+		                if (ccNumber === 1) {
+		                    const modwheelSlider = document.getElementById('modwheel');
+		                    const modwheelValueBox = document.getElementById('modwheel-value');
+		                    if (modwheelSlider && modwheelValueBox) {
+		                        modwheelSlider.value = ccValue;
+		                        modwheelValueBox.value = ccValue;
+		                    }
+		                }
+		            }
+		        }
+
+		        // Send note to WebMIDI
+		        if (index === 0) {
+		            // Expect msg to be an object: {pitch, velocity, channel, type}
+		            const pitch = msg;
+		            const velocity = data;
+		            const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+
+		            if (kasmWebMIDI && velocity > 0) {
+		                // Note On - highlight the key on SVG keyboard
+		                highlightMidiNoteOnKeyboard(pitch, true);
+		                kasmWebMIDI.sendNoteOn(pitch, velocity, channel);
+
+		                setTimeout(() => {
+		                    // Automatically send a note off after 500ms and unhighlight
+		                    kasmWebMIDI.sendNoteOff(pitch, channel);
+		                    highlightMidiNoteOnKeyboard(pitch, false);
+		                }, 500);
+		            } else if (kasmWebMIDI) {
+		                // Note Off - unhighlight the key
+		                highlightMidiNoteOnKeyboard(pitch, false);
+		                kasmWebMIDI.sendNoteOff(pitch, channel);
+		            } else {
+		                // Even if no MIDI output, still show on keyboard
+		                if (data && velocity > 0) {
+		                    highlightMidiNoteOnKeyboard(pitch, true);
+		                    setTimeout(() => {
+		                        highlightMidiNoteOnKeyboard(pitch, false);
+		                    }, 500);
+		                } else {
+		                    highlightMidiNoteOnKeyboard(pitch, false);
+		                }
+		            }
+		        }
+				
+                // Even if no MIDI output, still show on keyboard
+                if (data && velocity > 0) {
+                    highlightMidiNoteOnKeyboard(pitch, true);
+                    setTimeout(() => {
+                        highlightMidiNoteOnKeyboard(pitch, false);
+                    }, 500);
+                } else {
+                    highlightMidiNoteOnKeyboard(pitch, false);
+                }
+            }
+        }
+
+        // Send CC change to WebMIDI
+        if (index === 1) {
+            // Send MIDI CC change
+            if (currentMidiOutput || kasmWebMIDI) {
+                const ccNumber = msg; // assuming msg is the CC number
+                const ccValue = data; // assuming data is the CC value
+                const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+                if (typeof ccNumber === 'number' && typeof ccValue === 'number') {
+                    const ccMsg = [0xB0 + channel, ccNumber, ccValue];
+                    sendMidiData(ccMsg, ccNumber, ccValue, true);
+                    //kasmWebMIDI.sendControlChange(ccNumber, ccValue, channel);
+                    // Update panSlider if CC == 10
+                    if (ccNumber === 10) {
+                        const panSlider = document.getElementById('pan');
+                        const panValueBox = document.getElementById('pan-value');
+                        if (panSlider && panValueBox) {
+                            panSlider.value = ccValue;
+                            panValueBox.value = ccValue;
+                        }
+                    }
+                    // Update modwheelSlider if CC == 1
+                    if (ccNumber === 1) {
+                        const modwheelSlider = document.getElementById('modwheel');
+                        const modwheelValueBox = document.getElementById('modwheel-value');
+                        if (modwheelSlider && modwheelValueBox) {
+                            modwheelSlider.value = ccValue;
+                            modwheelValueBox.value = ccValue;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (index === 3) {
+            const chordKeyDisplay = document.getElementById('chordKeyDetection');
+            if (chordKeyDisplay) {
+                chordKeyDisplay.innerHTML = `${msg}`;
+            }
+        }
+        if (index === 4) {
+            const patternDisplay = document.getElementById('patternDetection');
+            if (patternDisplay) {
+                patternDisplay.innerHTML = `${msg}`;
+            }
+        }
+        if (index === 5) {
+            const looperDisplay = document.getElementById('loopDetection');
+            if (looperDisplay) {
+                looperDisplay.innerHTML = `${msg}`;
+            }
+        }
+    }
+
+    let midikeys_note = 60; // Default to C4 range 0-127
+    let midikeys_semitone_or_cc = 0; // Default to middle octave -120 to +120 or MIDI CC# 0
+    let midikeys_semitone_or_cc_offset = 0; // Default to middle octave -120 to +120 or MIDI CC# 0
+    let midikeys_velocity = 100; // Default velocity range 0-127
+    let activeKeys = new Set(); // Track currently pressed keys to avoid repeat
+    let encodersChanged = true;
+
+    // Keyboard mapping: key -> MIDI note offset from C (60)
+    const keyboardMapping = {
+        'a': 0,   // C
+        'w': 1,   // C#
+        's': 2,   // D
+        'e': 3,   // Eb
+        'd': 4,   // E
+        'f': 5,   // F
+        't': 6,   // F#
+        'g': 7,   // G
+        'y': 8,   // G#
+        'h': 9,   // A
+        'u': 10,  // Bb
+        'j': 11,  // B
+        'k': 12,  // C + 12
+        'o': 13,  // C# + 12
+        'l': 14,  // D + 12
+        'p': 15,  // Eb + 12
+        ';': 16,  // E + 12
+        "'": 17, // F + 12
+        ']': 18,  // F# + 12
+        '\\': 20  // G# + 12
+    };
+
+    function run_test_keyboard() {
+        inlet = 0;
+        msg_int(midikeys_note);
+        inlet = 2;
+        msg_int(midikeys_velocity);
+        if (encodersChanged) {
+            encodersChanged = false;
+            inlet = 1;
+            msg_int(midikeys_semitone_or_cc + midikeys_semitone_or_cc_offset);
+            inlet = 3;
+            msg_int(document.getElementById('enc1').value);
+            inlet = 4;
+            msg_int(document.getElementById('enc2').value);
+            inlet = 5;
+            msg_int(document.getElementById('inlet_5_emanator').value);
+        }
+    }
+
+    // Initialize Kasm WebMIDI
+    function initializeKasmWebMIDI() {
+        console.log('kasm: Initializing WebMIDI with new module...');
+
+        kasmWebMIDI = new KasmWebMIDI({
+            enableMPE: true,
+            logMIDI: true,
+            autoConnect: true
+        });
+
+        // Set up callbacks to integrate with existing UI
+        kasmWebMIDI.setCallback('onMIDIReady', (data) => {
+            console.log('kasm: WebMIDI ready');
+            updateMidiDeviceList();
+            document.getElementById('playbackStatus').textContent = 'MIDI ready';
+        });
+
+        kasmWebMIDI.setCallback('onError', (data) => {
+            console.error('kasm: WebMIDI error:', data.message);
+            document.getElementById('playbackStatus').textContent = data.message;
+        });
+
+        kasmWebMIDI.setCallback('onNoteOn', (data) => {
+            // Handle incoming MIDI notes
+            processNoteEvent(data.pitch, data.velocity);
+            highlightMidiNoteOnKeyboard(data.pitch, true);
+        });
+
+        kasmWebMIDI.setCallback('onNoteOff', (data) => {
+            // Handle incoming MIDI note offs
+            processNoteEvent(data.pitch, 0);
+            highlightMidiNoteOnKeyboard(data.pitch, false);
+        });
+
+        kasmWebMIDI.setCallback('onControlChange', (data) => {
+            // Handle incoming CC changes
+            if (data.ccNumber === 1) { // Modwheel
+                updateModwheelUI(data.ccValue);
+            } else if (data.ccNumber === 10) { // Pan
+                updatePanUI(data.ccValue);
+            }
+        });
+
+        kasmWebMIDI.setCallback('onDeviceStateChange', (data) => {
+            console.log('kasm: Device state changed:', data);
+            updateMidiDeviceList();
+        });
+    }
+
+    // Update MIDI device list using the new module
+    function updateMidiDeviceList() {
+        console.log('kasm: Updating MIDI device list with new module...');
+        const select = document.getElementById('midiOutputSelect');
+        const currentValue = select.value;
+
+        // Clear existing options except the first one
+        select.innerHTML = '<option value="">Select MIDI Device...</option>';
+
+        if (!kasmWebMIDI) {
+            document.getElementById('playbackStatus').textContent = 'WebMIDI not initialized';
+            return;
+        }
+
+        const inputs = kasmWebMIDI.getInputDevices();
+        const outputs = kasmWebMIDI.getOutputDevices();
+
+        console.log(`kasm: Found ${inputs.length} inputs, ${outputs.length} outputs`);
+
+        // Add input devices (for information only)
+        inputs.forEach((input, index) => {
+            const option = document.createElement('option');
+            option.value = `input-${index}`;
+            option.disabled = true;
+            option.style.color = '#666';
+            option.style.fontStyle = 'italic';
+            const statusIcon = input.state === 'connected' ? '🟢' : '🔴';
+            option.textContent = `${statusIcon} INPUT: ${input.name} (${input.manufacturer || 'Unknown'}) - ${input.state}`;
+            select.appendChild(option);
+        });
+
+        // Add separator if we have both inputs and outputs
+        if (inputs.length > 0 && outputs.length > 0) {
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '────────────────────────────';
+            select.appendChild(separator);
+        }
+
+        // Add output devices (selectable)
+        outputs.forEach((output, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            const statusIcon = output.state === 'connected' ? '🟩' : '🟥';
+            option.textContent = `${statusIcon} OUTPUT: ${output.name} (${output.manufacturer || 'Unknown'}) - ${output.state}`;
+
+            if (output.state === 'connected') {
+                option.style.color = '#2e7d32';
+                option.style.fontWeight = 'bold';
+            } else {
+                option.style.color = '#d32f2f';
+            }
+
+            select.appendChild(option);
+        });
+
+        // Restore previous selection if available
+        if (currentValue && currentValue !== '' && outputs[currentValue]) {
+            select.value = currentValue;
+            selectMidiDevice();
+        }
+
+        // Update status
+        const totalDevices = inputs.length + outputs.length;
+        if (totalDevices === 0) {
+            document.getElementById('playbackStatus').textContent = 'No MIDI devices found';
+        } else if (outputs.length === 0) {
+            document.getElementById('playbackStatus').textContent = `${inputs.length} input(s) found, no outputs`;
+        } else {
+            document.getElementById('playbackStatus').textContent = `${outputs.length} output(s) available`;
+        }
+    }
+
+    // Handle MIDI device selection using the new module
+    function selectMidiDevice() {
+        const select = document.getElementById('midiOutputSelect');
+        const selectedIndex = select.value;
+
+        if (selectedIndex !== '' && kasmWebMIDI) {
+            if (kasmWebMIDI.selectOutputDevice(selectedIndex)) {
+                currentMidiOutput = kasmWebMIDI.currentMidiOutput; // Keep for backward compatibility
+                document.getElementById('playbackStatus').textContent = 'ok';
+            } else {
+                currentMidiOutput = null;
+                document.getElementById('playbackStatus').textContent = 'Failed to select device';
+            }
+        } else {
+            currentMidiOutput = null;
+            document.getElementById('playbackStatus').textContent = 'No device selected';
+        }
+
+        saveSettings();
+        location.reload();
+    }
+
+    // Stop MIDI playback using the new module
+    function stopMidiPlayback() {
+        if (kasmWebMIDI) {
+            kasmWebMIDI.stopPlayback();
+        }
+
+        // Re-enable play button
+        document.getElementById('playMidi').disabled = false;
+
+        if (document.getElementById('playbackStatus').textContent === '...') {
+            document.getElementById('playbackStatus').textContent = 'Stopped';
+        }
+    }
+
+    // Send MIDI note on
+    function sendNoteOn(pitch, velocity, channel = 0) {
+        if (!currentMidiOutput) return;
+
+        const noteOnMsg = [0x90 + channel, pitch, velocity];
+        currentMidiOutput.send(noteOnMsg);
+
+        const keyChar = Object.keys(keyboardMapping).find(k => 60 + keyboardMapping[k] + midikeys_semitone_or_cc === pitch);
+        if (keyChar) {
+            const pianoKey = document.querySelector(`[data-key="${keyChar}"]`);
+            if (pianoKey) {
+                pianoKey.setAttribute('fill', 'lime');
+            }
+        }
+
+        try {
+            const result = bang(inlet_0, inlet_1, inlet_2, inlet_3, inlet_4, inlet_5);
+        } catch (err) {
+            console.error('kasm: Error in run_test_keyboard:', err);
+        }
+
+    }
+
+    // Send MIDI note off
+    function sendNoteOff(pitch, channel = 0, velocity = 64) {
+        if (!currentMidiOutput) return;
+
+        const noteOffMsg = [0x80 + channel, pitch, velocity];
+        currentMidiOutput.send(noteOffMsg);
+
+        // Restore SVG piano key color
+        const keyChar = Object.keys(keyboardMapping).find(k => 60 + keyboardMapping[k] + midikeys_semitone_or_cc === pitch);
+        if (keyChar) {
+            const pianoKey = document.querySelector(`[data-key="${keyChar}"]`);
+            if (pianoKey) {
+                if (pianoKey.classList.contains('white-key')) {
+                    pianoKey.setAttribute('fill', 'white');
+                    pianoKey.setAttribute('stroke', '#333');
+                    pianoKey.setAttribute('stroke-width', '1');
+                } else {
+                    pianoKey.setAttribute('fill', '#333');
+                    pianoKey.setAttribute('stroke', '#000');
+                    pianoKey.setAttribute('stroke-width', '1');
+                }
+            }
+        }
+
+        try {
+            const result = bang(inlet_0, inlet_1, 0, inlet_3, inlet_4, inlet_5);
+        } catch (err) {
+            console.error('kasm: Error in run_test_keyboard:', err);
+        }
+
+    }
+
+    // Send all notes off (panic)
+    function sendAllNotesOff(channel = 0) {
+        if (!currentMidiOutput) return;
+
+        // Send All Notes Off CC message
+        const allNotesOffMsg = [0xB0 + channel, 123, 0];
+        currentMidiOutput.send(allNotesOffMsg);
+
+        // Also send individual note offs for all possible notes as backup
+        for (let note = 0; note <= 127; note++) {
+            sendNoteOff(note, channel);
+        }
+    }
+
+    // Keyboard event handlers
+    function handleKeyDown(event) {
+        const key = event.key.toLowerCase();
+
+        const activeElement = document.activeElement;
+        // Only block MIDI keys if NOT focused on textarea/input AND not using modifier keys
+        if (activeElement && (activeElement.tagName === 'TEXTAREA')) {
+            // Allow all keys and shortcuts (typing, copy, paste, etc.)
+            return
+        }
+        // Ignore if Ctrl, Alt, Meta, or Shift is pressed (for shortcuts)
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+            return;
+        }
+
+        // Prevent repeat events when key is held down
+        if (activeKeys.has(key)) {
+            return;
+        }
+        activeKeys.add(key);
+
+        // Handle note keys (a-j with some letters for chromatic scale)
+        if (keyboardMapping.hasOwnProperty(key)) {
+            midikeys_note = 60 + keyboardMapping[key] + midikeys_semitone_or_cc;
+            midikeys_note = Math.max(0, Math.min(127, midikeys_note)); // Clamp to MIDI range
+
+            // Send note with current velocity
+            midikeys_velocity = Math.max(1, parseInt(document.getElementById('velocity').value) || 100);
+            processNoteEvent(midikeys_note, midikeys_velocity);
+
+            // Also send MIDI if device is connected
+            const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+            if (currentMidiOutput) {
+                sendNoteOn(midikeys_note, midikeys_velocity, channel);
+            } else if (kasmWebMIDI && kasmWebMIDI.currentMidiOutput) {
+                kasmWebMIDI.sendNoteOn(midikeys_note, midikeys_velocity, channel);
+			}
+
+            //console.log(`kasm: Key ${key} pressed: MIDI note ${midikeys_note} (velocity ${midikeys_velocity})`);
+            return;
+        }
+
+        // Handle octave changes (z = down, x = up)
+        if (key === 'z') {
+            encodersChanged = true;
+            midikeys_semitone_or_cc = Math.max(-120, midikeys_semitone_or_cc - 12);
+            document.getElementById('semitone').value = midikeys_semitone_or_cc;
+            updateDial('semitone', midikeys_semitone_or_cc);
+            console.log(`kasm: Octave down: semitone offset = ${midikeys_semitone_or_cc}`);
+            return;
+        }
+
+        if (key === 'x') {
+            encodersChanged = true;
+            midikeys_semitone_or_cc = Math.min(120, midikeys_semitone_or_cc + 12);
+            document.getElementById('semitone').value = midikeys_semitone_or_cc;
+            updateDial('semitone', midikeys_semitone_or_cc);
+            console.log(`kasm: Octave up: semitone offset = ${midikeys_semitone_or_cc}`);
+            return;
+        }
+
+        // Handle velocity changes (c = down, v = up)
+        if (key === 'c') {
+            encodersChanged = true;
+            let currentVelocity = parseInt(document.getElementById('velocity').value) || 100;
+            currentVelocity = Math.max(1, currentVelocity - 10);
+            document.getElementById('velocity').value = currentVelocity;
+            updateDial('velocity', currentVelocity);
+            console.log(`kasm: Velocity down: ${currentVelocity}`);
+            return;
+        }
+
+        if (key === 'v') {
+            encodersChanged = true;
+            let currentVelocity = parseInt(document.getElementById('velocity').value) || 100;
+            currentVelocity = Math.min(127, currentVelocity + 10);
+            document.getElementById('velocity').value = currentVelocity;
+            updateDial('velocity', currentVelocity);
+            console.log(`kasm: Velocity up: ${currentVelocity}`);
+            return;
+        }
+    }
+
+    function handleKeyUp(event) {
+        const key = event.key.toLowerCase();
+
+        // Remove from active keys set
+        activeKeys.delete(key);
+
+        // Handle note keys - send note off
+        if (keyboardMapping.hasOwnProperty(key)) {
+            const noteToStop = 60 + keyboardMapping[key] + midikeys_semitone_or_cc;
+            const clampedNote = Math.max(0, Math.min(127, noteToStop));
+
+            // Send note off with velocity 0
+            midikeys_velocity = 0;
+            midikeys_note = clampedNote;
+            run_test_keyboard();
+
+            // Also send MIDI note off if device is connected
+            const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+            if (currentMidiOutput) {
+                sendNoteOff(clampedNote, channel);
+            } else             if (currentMidiOutput) {
+                kasmWebMIDI.sendNoteOff(clampedNote, channel);
+            }
+
+
+            //console.log(`kasm: Key ${key} released: MIDI note ${clampedNote} off`);
+        }
+    }
+
+    // Add keyboard event listeners
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+
+    // Prevent default browser behavior for our mapped keys
+    document.addEventListener('keydown', function (event) {
+        const activeElement = document.activeElement;
+        // Only block MIDI keys if NOT focused on textarea/input AND not using modifier keys
+        if (activeElement && (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT')) {
+            // Allow all keys and shortcuts (typing, copy, paste, etc.)
+            return
+        }
+        // Ignore if Ctrl, Alt, Meta, or Shift is pressed (for shortcuts)
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+            return;
+        }
+
+        const key = event.key.toLowerCase();
+        if (keyboardMapping.hasOwnProperty(key) || ['z', 'x', 'c', 'v'].includes(key)) {
+            event.preventDefault();
+        }
+    });
+
+    // Add visual feedback for keyboard mapping
+    function displayKeyboardHelp() {
+        const helpText = `
+Keyboard Controls:
+Notes: A=C, W=C#, S=D, E=Eb, D=E, F=F, T=F#, G=G, Y=G#, H=A, U=Bb, J=B
+Octave: Z=down (-12), X=up (+12)
+Velocity: C=down (-10), V=up (+10)
+        `;
+        console.log(helpText);
+    }
+
+    // Display help on page load
+    displayKeyboardHelp();
+
+    // Dynamic kasm_transform_notes Tester
+    document.getElementById('transformTest').addEventListener('click', function () {
+        const rateMs = parseInt(document.getElementById('rateMs').value);
+        const note = parseInt(document.getElementById('note').value);
+        const semitone = parseInt(document.getElementById('semitone').value);
+        const velocity = parseInt(document.getElementById('velocity').value);
+        const enc1 = parseInt(document.getElementById('enc1').value);
+        const enc2 = parseInt(document.getElementById('enc2').value);
+        const emanator = parseInt(document.getElementById('inlet_5_emanator').value);
+
+        try {
+            // kasm_transform_notes is synchronous, not async
+            const result = kasm_rust.kasm_transform_notes(inputNotes, rateMs, note, semitone, velocity, enc1, enc2, emanator);
+        } catch (err) {
+        }
+    });
+
+    function initializeKasmCanvas() {
+        if (kasm_rust && kasm_rust.init_kasm_canvas) {
+            try {
+                const canvas = document.getElementById('kasmHTMLCanvas');
+                if (canvas) {
+                    if (typeof kasm_rust.init_kasm_canvas === 'function') {
+                        kasm_rust.init_kasm_canvas(canvas.width, canvas.height);
+                        console.log('kasm: HTML5 canvas initialized successfully width=' + canvas.width + ' height=' + canvas.height);
+                    } else {
+                        console.warn('kasm: init_kasm_canvas function not available');
+                    }
+                }
+            } catch (err) {
+                console.error('kasm: Failed to initialize HTML5 canvas:', err);
+            }
+        } else {
+            console.warn('kasm: HTML5 feature missing');
+        }
+    }
+
+    // Initialize application with saved settings or defaults
+    function initializeApplication() {
+        // Try to load saved settings first
+        const settingsLoaded = loadSettings();
+
+        // If no saved settings, load default example
+        if (!settingsLoaded) {
+            loadDefaultExample();
+        }
+
+        // Initialize other components
+        initializeDials();
+        initializeNoteDisplay();
+        setTimeout(initializeKasmCanvas, 100);
+        setTimeout(autoTransform, 200);
+    }
+
+    inlet_5 = 1; // Default value for inlet_5 (arp:Up)
+
+    loadbang(initializeApplication);
+
+    // Auto-transform function with debouncing
+    function autoTransform() {
+        // Clear any existing timeout to debounce rapid changes
+        clearTimeout(autoTransformTimeout);
+        clearTimeout(autoPlayTimeout);
+
+        const emanator = document.getElementById('inlet_5_emanator').value;
+        document.getElementById('inlet_1_label').innerText = 'Semitone offset';
+        if (document.getElementById('semitone').value == 1) {
+            document.getElementById('semitone').value = 0;
+            midikeys_semitone_or_cc_offset = 0;
+        }
+
+        const rateInput = document.getElementById('rateMs');
+        const tempoInput = document.getElementById('tempo');
+        if (rateInput && tempoInput) {
+            // Only set up listeners once
+            if (!rateInput._syncListener) {
+                rateInput.addEventListener('input', function () {
+                    const rate = parseInt(rateInput.value);
+                    if (!isNaN(rate) && rate > 0) {
+                        let bpm = Math.round(60000 / rate) / 2; // quarter notes 4 beats per bar
+                        if (bpm < 20) bpm = 20;
+                        if (bpm > 999) bpm = 999;
+                        if (parseInt(tempoInput.value) !== bpm) tempoInput.value = bpm;
+                    }
+                });
+                rateInput._syncListener = true;
+            }
+            if (!tempoInput._syncListener) {
+                tempoInput.addEventListener('input', function () {
+                    const bpm = parseInt(tempoInput.value);
+                    if (!isNaN(bpm) && bpm > 0) {
+                        let rate = Math.round(60000 / bpm) / 2;   // quarter notes 4 beats per bar
+                        if (rate < 30) rate = 30;
+                        if (rate > 1500) rate = 1500;
+                        if (parseInt(rateInput.value) !== rate) rateInput.value = rate;
+                    }
+                });
+                tempoInput._syncListener = true;
+            }
+        }
+
+        // Set a small delay to avoid excessive processing during rapid input changes
+        autoTransformTimeout = setTimeout(() => {
+            const rateMs = parseInt(document.getElementById('rateMs').value);
+            const note = parseInt(document.getElementById('note').value);
+            const semitone = parseInt(document.getElementById('semitone').value);
+            const velocity = parseInt(document.getElementById('velocity').value);
+            const enc1 = parseInt(document.getElementById('enc1').value);
+            const enc2 = parseInt(document.getElementById('enc2').value);
+            const emanator = parseInt(document.getElementById('inlet_5_emanator').value);
+
+            try {
+                // kasm_transform_notes is synchronous, not async
+                const result = kasm_rust.kasm_transform_notes(inputNotes, rateMs, note, semitone, velocity, enc1, enc2, emanator);
+            } catch (err) {
+            }
+        }, 5); // 5ms debounce delay
+
+        clearTimeout(window.updateBangTimeout);
+        window.updateBangTimeout = setTimeout(() => {
+            updateBang();
+        }, 50);
+    }
+
+    // Set a small delay to avoid excessive processing during rapid input changes
+    function updateBang() {
+        setTimeout(() => {
+            console.log('kasm: updateBang');
+            midikeys_note = 60;
+            midikeys_velocity = 100;
+            encodersChanged = true;
+            run_test_keyboard();
+
+            // Simulate pressing and releasing the 'a' key
+            const bangDown = new KeyboardEvent('keydown', {key: 'a', code: 'KeyA', keyCode: 65, bubbles: true});
+            const bangUp = new KeyboardEvent('keyup', {key: 'a', code: 'KeyA', keyCode: 65, bubbles: true});
+            document.dispatchEvent(bangDown);
+            document.dispatchEvent(bangUp);
+        }, 400);
+    }
+
+    // Update dial visual appearance
+    function updateDial(encId, value) {
+        const numValue = parseInt(value);
+        let percentage, angle, maxValue, minValue;
+
+        // Update note display if this is the note dial
+        if (encId === 'note') {
+            updateNoteDisplay();
+        }
+
+        if (encId === 'semitone') {
+            midikeys_semitone_or_cc_offset = value;
+        }
+
+        // Handle different ranges for different controls
+        if (encId === 'rate') {
+            minValue = 30;
+            maxValue = 1500;
+            percentage = (numValue - minValue) / (maxValue - minValue);
+        } else if (encId === 'semitone') {
+            minValue = -127;
+            maxValue = 127;
+            percentage = (numValue - minValue) / (maxValue - minValue);
+        } else {
+            // Default for enc1, enc2, velocity (0-127)
+            minValue = 0;
+            maxValue = 127;
+            percentage = numValue / maxValue;
+        }
+
+        angle = percentage * 270 - 135; // 270 degree range, starting from -135
+        const circumference = 2 * Math.PI * 25; // radius = 25
+        const dashOffset = circumference - (percentage * circumference);
+
+        // Update progress circle
+        const progressCircle = document.getElementById(encId + '-progress');
+        if (progressCircle) {
+            progressCircle.style.strokeDashoffset = dashOffset;
+        }
+
+        // Update pointer rotation
+        const pointer = document.getElementById(encId + '-pointer');
+        if (pointer && !isNaN(angle)) {
+            pointer.setAttribute('transform', `rotate(${angle} 30 30)`);
+        }
+
+        // Update number input if it's different
+        let numberInputId = encId;
+        if (encId === 'rate') numberInputId = 'rateMs';
+
+        const numberInput = document.getElementById(numberInputId);
+        if (numberInput && numberInput.value != numValue) {
+            numberInput.value = numValue;
+        }
+
+        // Update range input if it's different
+        const rangeInput = document.getElementById(encId + '-dial');
+        if (rangeInput && rangeInput.value != numValue) {
+            rangeInput.value = numValue;
+        }
+
+        clearTimeout(window.updateBangTimeout);
+        window.updateBangTimeout = setTimeout(() => {
+            updateBang();
+        }, 50);
+    }
+
+    // Enhanced dial interaction handlers
+    let isDragging = false;
+    let dragStartY = 0;
+    let dragStartValue = 0;
+    let currentDragDial = null;
+
+    function setupDialInteraction(encId) {
+        const dialContainer = document.querySelector(`#${encId}-dial`).parentElement;
+
+        // Determine the correct input element ID and value ranges
+        let inputId = encId;
+        let minValue = 0, maxValue = 127;
+
+        if (encId === 'rate') {
+            inputId = 'rateMs';
+            minValue = 30;
+            maxValue = 1500;
+        } else if (encId === 'semitone') {
+            minValue = -127;
+            maxValue = 127;
+        }
+
+        const numberInput = document.getElementById(inputId);
+
+        // Mouse/touch events for dragging
+        dialContainer.addEventListener('mousedown', (e) => startDrag(e, encId));
+        dialContainer.addEventListener('touchstart', (e) => startDrag(e.touches[0], encId));
+
+        // Mousewheel events
+        dialContainer.addEventListener('wheel', (e) => {
+            encodersChanged = true;
+            e.preventDefault();
+            const currentValue = parseInt(numberInput.value);
+            const delta = e.deltaY > 0 ? -1 : 1; // Invert for natural scroll direction
+
+            // Different sensitivities for different controls
+            let sensitivity = e.shiftKey ? 0.1 : 1;
+            if (encId === 'rate') {
+                sensitivity = e.shiftKey ?  5 : 20; // Larger steps for rate
+            }
+
+            const newValue = Math.max(minValue, Math.min(maxValue, currentValue + (delta * sensitivity)));
+            updateDial(encId, newValue);
+
+            autoTransform();
+        });
+
+        // Add double-click to reset dial value
+        dialContainer.addEventListener('dblclick', function () {
+            let resetValue = 0;
+            if (encId === 'rate') resetValue = 250;
+            else if (encId === 'note') resetValue = 60;
+            else if (encId === 'semitone') resetValue = 0;
+            else if (encId === 'velocity') resetValue = 100;
+            else if (encId === 'enc1') resetValue = 100;
+            else if (encId === 'enc2') resetValue = 80;
+            updateDial(encId, resetValue);
+            autoTransform();
+
+            document.getElementById('rateMs').dispatchEvent(new Event("input"));
+        });
+
+        // Prevent context menu on right click
+        dialContainer.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+
+    function startDrag(e, encId) {
+        encodersChanged = true;
+        isDragging = true;
+        currentDragDial = encId;
+        dragStartY = e.clientY;
+        if (encId === 'rate') {
+            dragStartValue = parseInt(document.getElementById("rateMs").value);
+        } else {
+            dragStartValue = parseInt(document.getElementById(encId).value);
+        }
+
+        // Add global event listeners for drag and release
+        document.addEventListener('mousemove', handleDrag);
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchmove', handleTouchDrag);
+        document.addEventListener('touchend', endDrag);
+
+        // Prevent text selection during drag
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    }
+
+    function handleDrag(e) {
+        if (!isDragging || !currentDragDial) return;
+
+        // Get the correct min/max values for the current dial
+        let minValue = 0, maxValue = 127;
+        if (currentDragDial === 'rate') {
+            minValue = 20;
+            maxValue = 1500;
+        } else if (currentDragDial === 'semitone') {
+            minValue = -127;
+            maxValue = 127;
+        }
+
+        const deltaY = dragStartY - e.clientY; // Invert Y for natural direction
+        const sensitivity = e.shiftKey ? 0.2 : 0.5; // Fine control with shift
+        const newValue = Math.max(minValue, Math.min(maxValue, dragStartValue + (deltaY * sensitivity)));
+
+        updateDial(currentDragDial, Math.round(newValue));
+        autoTransform();
+    }
+
+    function handleTouchDrag(e) {
+        if (!isDragging || !currentDragDial) return;
+        e.preventDefault();
+
+        // Get the correct min/max values for the current dial
+        let minValue = 0, maxValue = 127;
+        if (currentDragDial === 'rate') {
+            minValue = 50;
+            maxValue = 10000;
+        } else if (currentDragDial === 'semitone') {
+            minValue = -127;
+            maxValue = 127;
+        }
+
+        const touch = e.touches[0];
+        const deltaY = dragStartY - touch.clientY;
+        const sensitivity = 0.5;
+        const newValue = Math.max(minValue, Math.min(maxValue, dragStartValue + (deltaY * sensitivity)));
+
+        updateDial(currentDragDial, Math.round(newValue));
+        autoTransform();
+    }
+
+    function endDrag() {
+        if (!isDragging) return;
+
+        if (currentDragDial === 'rate') {
+            // Trigger input event to sync rate with tempo
+            document.getElementById('rateMs').dispatchEvent(new Event("input"));
+        }
+
+        isDragging = false;
+        currentDragDial = null;
+
+        // Remove global event listeners
+        document.removeEventListener('mousemove', handleDrag);
+        document.removeEventListener('mouseup', endDrag);
+        document.removeEventListener('touchmove', handleTouchDrag);
+        document.removeEventListener('touchend', endDrag);
+
+        // Restore text selection
+        document.body.style.userSelect = '';
+    }
+
+    // Initialize dials on page load
+    function initializeDials() {
+        // Initialize all dial controls with their default values
+        updateDial('rate', 250);
+        updateDial('note', 60);
+        updateDial('semitone', 0);
+        updateDial('velocity', 100);
+        updateDial('enc1', 100);
+        updateDial('enc2', 80);
+
+        // Setup enhanced interaction for all dials
+        setupDialInteraction('rate');
+        setupDialInteraction('note');
+        setupDialInteraction('semitone');
+        setupDialInteraction('velocity');
+        setupDialInteraction('enc1');
+        setupDialInteraction('enc2');
+    }
+
+    // MIDI Note Name Functions
+    function midiToNoteName(midiNumber) {
+        const noteNames = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'];
+        const octave = Math.floor(midiNumber / 12) - 1;
+        const noteIndex = midiNumber % 12;
+        return noteNames[noteIndex] + octave;
+    }
+
+    function noteNameToMidi(noteName) {
+        // Parse note name like "C4", "F#3", "Bb5", etc.
+        const noteMap = {
+            'C': 0, 'C#': 1, 'D': 1,
+            'Eb': 2, 'E': 3,
+            'F': 4, 'F#': 5, 'G': 7,
+            'G#': 8,
+            'A': 9, 'Bb': 10, 'B': 11,
+        };
+
+        // Clean input and make uppercase
+        const cleaned = noteName.trim().toUpperCase();
+
+        // Extract note and octave
+        let note, octave;
+        if (cleaned.length === 2) {
+            // Single character note like "C4"
+            note = cleaned[0];
+            octave = parseInt(cleaned[1]);
+        } else if (cleaned.length === 3) {
+            // Two character note like "C#4" or "BB5"
+            note = cleaned.substring(0, 2);
+            octave = parseInt(cleaned[2]);
+        } else {
+            return null; // Invalid format
+        }
+
+        // Validate octave
+        if (isNaN(octave) || octave < -1 || octave > 9) {
+            return null;
+        }
+
+        // Get note value
+        const noteValue = noteMap[note];
+        if (noteValue === undefined) {
+            return null;
+        }
+
+        // Calculate MIDI number
+        const midiNumber = (octave + 1) * 12 + noteValue;
+
+        // Validate range
+        if (midiNumber < 0 || midiNumber > 127) {
+            return null;
+        }
+
+        return midiNumber;
+    }
+
+    function updateNoteDisplay() {
+        const midiNumber = parseInt(document.getElementById('note').value);
+        if (!isNaN(midiNumber) && midiNumber >= 0 && midiNumber <= 127) {
+            const noteName = midiToNoteName(midiNumber);
+            document.getElementById('noteName').value = noteName;
+        }
+    }
+
+    function updateNoteFromName() {
+        const noteName = document.getElementById('noteName').value;
+        const midiNumber = noteNameToMidi(noteName);
+
+        if (midiNumber !== null) {
+            document.getElementById('note').value = midiNumber;
+            autoTransform();
+        } else {
+            // If invalid, revert to current MIDI number's name
+            updateNoteDisplay();
+        }
+    }
+
+    function handleNoteNameKeydown(event) {
+        // Allow only valid MIDI note name characters: A-G, a-g, #, b, and octave numbers 0-9
+        const validChars = /^[A-Ga-g#b09]$/;
+        const key = event.key;
+
+        if (!validChars.test(key) && key !== 'Backspace' && key !== 'Tab' && key !== 'Enter') {
+            event.preventDefault();
+        }
+    }
+
+    // Initialize note display on page load
+    function initializeNoteDisplay() {
+        updateNoteDisplay();
+    }
+
+    // WebMIDI Support
+    // WebMIDI Support with MPE/Omni Input
+    let midiAccess = null;
+    let midiOutputs = [];
+    let midiInputs = []; // Track input devices for MPE support
+    let playbackTimeouts = [];
+    let isPlaying = false;
+    let mpeEnabled = true; // Enable MPE/omni input by default
+    let mpeChannels = new Map(); // Track active MPE channels and their state
+
+    // Initialize WebMIDI
+    async function initializeMIDI() {
+        console.log('kasm: Initializing WebMIDI support...');
+        try {
+            // Request MIDI access
+            midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+
+            // Set up event listeners for state changes
+            midiAccess.onstatechange = onMIDIStateChange;
+
+            // Log available devices
+            logMIDIDevices(midiAccess);
+
+            // Auto-connect all input devices - add this section
+            console.log('kasm: Auto-connecting all available MIDI inputs...');
+            midiInputs = Array.from(midiAccess.inputs.values());
+            midiInputs.forEach(input => {
+                setupInputMessageHandler(input);
+                console.log(`kasm: Auto-connected input: "${input.name}"`);
+            });
+
+            console.log('kasm: MIDI system initialized with all inputs auto-connected');
+            document.getElementById('playbackStatus').textContent = 'MIDI ready (all inputs connected)';
+        } catch (error) {
+            console.error("kasm: Failed to access MIDI devices:", error);
+        }
+
+
+        if (!navigator.requestMIDIAccess) {
+            console.warn('WebMIDI API not supported in this browser');
+            document.getElementById('playbackStatus').textContent = 'WebMIDI not supported';
+            return;
+        }
+
+        try {
+            console.log('kasm: Requesting MIDI access with sysex: false...');
+            midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+            console.log('kasm: MIDI access granted successfully');
+
+            // Log available MIDI devices with detailed information
+            logMIDIDevices(midiAccess);
+
+            // Update device list in UI
+            updateMidiDeviceList();
+
+            // Set up device state change monitoring with enhanced logging
+            midiAccess.onstatechange = onMIDIStateChange;
+
+            console.log('kasm: MIDI system initialized successfully');
+            document.getElementById('playbackStatus').textContent = 'MIDI ready';
+        } catch (err) {
+            console.error('kasm: Failed to initialize WebMIDI:', err);
+
+            let errorMessage = 'MIDI access failed';
+            if (err.name === 'SecurityError') {
+                errorMessage = 'MIDI access blocked by security policy';
+                console.error('kasm: Security Error: MIDI access was blocked. This may be due to browser security settings or HTTPS requirements.');
+            } else if (err.name === 'NotSupportedError') {
+                errorMessage = 'MIDI not supported on this system';
+                console.error('kasm: Not Supported Error: MIDI is not supported on this system or browser.');
+            } else if (err.name === 'InvalidStateError') {
+                errorMessage = 'MIDI system in invalid state';
+                console.error('kasm: Invalid State Error: MIDI system is in an invalid state.');
+            } else if (err.name === 'AbortError') {
+                errorMessage = 'MIDI access request was aborted';
+                console.error('kasm: Abort Error: MIDI access request was aborted by user or system.');
+            }
+
+            document.getElementById('playbackStatus').textContent = errorMessage;
+        }
+    }
+
+    // Enhanced MIDI device logging with input/output indication
+    function logMIDIDevices(midiAccess) {
+        console.log('kasm: Scanning for MIDI devices...');
+
+        const inputs = Array.from(midiAccess.inputs.values());
+        const outputs = Array.from(midiAccess.outputs.values());
+
+        console.log(`kasm: Found ${inputs.length} MIDI INPUT device(s):`);
+        inputs.forEach((input, index) => {
+            console.log(`kasm:   ${index + 1}. INPUT: "${input.name}" (${input.manufacturer || 'Unknown Manufacturer'})`);
+            console.log(`kasm:      - ID: ${input.id}`);
+            console.log(`kasm:      - State: ${input.state}`);
+            console.log(`kasm:      - Connection: ${input.connection}`);
+            console.log(`kasm:      - Type: ${input.type}`);
+            console.log(`kasm:      - Version: ${input.version || 'Unknown'}`);
+        });
+
+        console.log(`kasm: Found ${outputs.length} MIDI OUTPUT device(s):`);
+        outputs.forEach((output, index) => {
+            console.log(`kasm:   ${index + 1}. OUTPUT: "${output.name}" (${output.manufacturer || 'Unknown Manufacturer'})`);
+            console.log(`kasm:      - ID: ${output.id}`);
+            console.log(`kasm:      - State: ${output.state}`);
+            console.log(`kasm:      - Connection: ${output.connection}`);
+            console.log(`kasm:      - Type: ${output.type}`);
+            console.log(`kasm:      - Version: ${output.version || 'Unknown'}`);
+        });
+
+        if (inputs.length === 0 && outputs.length === 0) {
+            console.warn('No MIDI devices found. Please connect a MIDI device and refresh the page.');
+            console.log('kasm: Troubleshooting tips:');
+            console.log('kasm:    - Ensure MIDI device is connected and powered on');
+            console.log('kasm:    - Try refreshing the page after connecting device');
+            console.log('kasm:    - Check if device drivers are installed');
+            console.log('kasm:    - Some devices may require specific browser permissions');
+        } else {
+            console.log(`kasm: Total MIDI devices found: ${inputs.length + outputs.length} (${inputs.length} inputs, ${outputs.length} outputs)`);
+        }
+    }
+
+    // Enhanced MIDI state change handler with detailed logging
+    function onMIDIStateChange(event) {
+        const port = event.port;
+        const isInput = port.type === 'input';
+        const deviceType = isInput ? 'INPUT' : 'OUTPUT';
+
+        console.log(`kasm: MIDI device state change detected:`);
+        console.log(`kasm:    Device: ${deviceType} "${port.name}" (${port.manufacturer || 'Unknown'})`);
+        console.log(`kasm:    State: ${port.state}`);
+        console.log(`kasm:    Connection: ${port.connection}`);
+        console.log(`kasm:    ID: ${port.id}`);
+
+        if (port.state === 'connected') {
+            console.log(`kasm: MIDI ${deviceType} device connected: "${port.name}"`);
+
+            if (isInput) {
+                console.log(`kasm: Setting up message handler for input device: "${port.name}"`);
+                setupInputMessageHandler(port);
+            } else {
+                console.log(`kasm: MIDI output device "${port.name}" is now available for playback`);
+            }
+
+            // Update device list when new device connects
+            updateMidiDeviceList();
+
+        } else if (port.state === 'disconnected') {
+            console.log(`kasm: MIDI ${deviceType} device disconnected: "${port.name}"`);
+
+            // Update device list when device disconnects
+            updateMidiDeviceList();
+
+            // If the disconnected device was our current output, clear it
+            if (!isInput && currentMidiOutput && currentMidiOutput.id === port.id) {
+                console.log(`kasm: Current MIDI output device was disconnected, clearing selection`);
+                currentMidiOutput = null;
+                document.getElementById('playbackStatus').textContent = 'Output device disconnected';
+            }
+        }
+
+        // Re-log all devices after state change for current status
+        if (midiAccess) {
+            console.log('kasm: Current MIDI device status after state change:');
+            logMIDIDevices(midiAccess);
+        }
+    }
+
+    // Setup message handler for MIDI input devices
+    function setupInputMessageHandler(inputPort) {
+        inputPort.onmidimessage = function(message) {
+            handleMIDIMessage(message, inputPort.name, inputPort.type);
+        };
+
+        console.log(`kasm: Message handler connected to INPUT device: "${inputPort.name}"`);
+    }
+
+    // Enhanced MIDI message handler with comprehensive logging
+    function handleMIDIMessage(message, deviceName, deviceType) {
+        const [status, data1, data2] = message.data;
+        const channel = (status & 0x0F) + 1; // Extract MIDI channel (1-16)
+        const messageType = status & 0xF0; // Extract message type
+
+        if (currentMidiOutput && currentMidiOutput.name === deviceName) {
+            console.log(`kasm: Preventing feedback loop - skipping forward to same device: "${deviceName}"`);
+            return;
+        }
+
+        if (!status || !messageType) {
+            return;
+        }
+
+        // Ensure data1 and data2 are defined (they can be 0, which is valid)
+        const validData1 = data1 !== undefined ? data1 : 0;
+        const validData2 = data2 !== undefined ? data2 : 0;
+
+        // Initialize MPE channel state if not exists - Support for all 16 MIDI channels
+        if (!mpeChannels.has(channel)) {
+            mpeChannels.set(channel, {
+                activeNotes: new Set(),
+                pitchBend: 0,
+                channelPressure: 0,
+                timbre: 64, // CC74
+                pressure: 0  // CC11 or aftertouch
+            });
+        }
+
+        const channelState = mpeChannels.get(channel);
+
+        // Log detailed MIDI message info
+        console.log(`kasm: MIDI message from ${deviceType.toUpperCase()} "${deviceName}":`);
+        console.log(`kasm:    Raw data: [${status}, ${validData1}, ${validData2}] (0x${status.toString(16)}, 0x${validData1.toString(16)}, 0x${validData2.toString(16)})`);
+        console.log(`kasm:    Channel: ${channel} ${mpeEnabled ? '(MPE enabled)' : ''}`);
+        console.log(`kasm:    Message type: 0x${messageType.toString(16)}`);
+
+        // Handle different message types with detailed logging and MPE support
+        if (messageType === 0x90 && validData2 > 0) {
+            // Note On - Accept from ANY channel for MPE support
+            const noteName = getNoteName(validData1);
+            console.log(`kasm: Note ON: ${noteName} (MIDI ${validData1}) - Velocity: ${validData2} - Channel: ${channel}`);
+
+            // Track active note in MPE channel state
+            channelState.activeNotes.add(validData1);
+
+            // Trigger WASM function and UI updates
+            processNoteEvent(validData1, validData2);
+
+            // Call sendNoteOn to match keyboard behavior
+            const outputChannel = parseInt(document.getElementById('midiChannel').value) || 0;
+            sendNoteOn(validData1, validData2, outputChannel);
+
+            // Add visual piano key feedback
+            highlightMidiNoteOnKeyboard(validData1, true);
+
+            // Send to current MIDI output if connected
+            if (currentMidiOutput) {
+                console.log(`kasm: Forwarding note to output device: "${currentMidiOutput.name}"`);
+                const noteOnMsg = [0x90 + (parseInt(document.getElementById('midiChannel').value) || 0), validData1, validData2];
+                sendMidiData(noteOnMsg, validData1, validData2);
+            }
+
+        } else if (messageType === 0x80 || (messageType === 0x90 && validData2 === 0)) {
+            // Note Off
+            const noteName = getNoteName(validData1);
+            console.log(`kasm: Note OFF: ${noteName} (MIDI ${validData1}) - Channel: ${channel}`);
+
+            // Process note off event
+            processNoteEvent(validData1, 0);
+
+            // Forward to output device if needed
+            if (currentMidiOutput) {
+                currentMidiOutput.send([status, validData1, validData2]);
+            }
+
+            // Remove visual piano key feedback
+            highlightMidiNoteOnKeyboard(validData1, false);
+
+            // Remove from active notes in MPE channel state
+            channelState.activeNotes.delete(validData1);
+
+            // Send MIDI note off if connected
+            if (currentMidiOutput) {
+                const noteOffMsg = [0x80 + (parseInt(document.getElementById('midiChannel').value) || 0), validData1, 64];
+                sendMidiData(noteOffMsg, validData1, 0);
+            }
+
+        } else if (messageType === 0xB0) {
+            // Control Change - Enhanced MPE support
+            console.log(`kasm: Control Change: CC${validData1} = ${validData2} - Channel: ${channel}`);
+            console.log(`kasm:    CC Name: ${getCCName(validData1)}`);
+
+            // Handle MPE-specific CCs
+            if (validData1 === 74) {
+                // MPE Timbre (CC74)
+                channelState.timbre = validData2;
+                console.log(`kasm: 🎨 MPE Timbre (Ch ${channel}): ${validData2}`);
+            } else if (validData1 === 11) {
+                // MPE Pressure/Expression (CC11)
+                channelState.pressure = validData2;
+                console.log(`kasm: 💪 MPE Pressure (Ch ${channel}): ${validData2}`);
+            }
+
+            // Handle specific CC messages - respect MPE channel routing
+            if (validData1 === 1) {
+                console.log(`kasm: 🌊 Modwheel (Ch ${channel}): ${validData2}`);
+                // In MPE mode, only update global UI from channel 1 (master channel)
+                // In non-MPE mode, accept from any channel
+                if (channel === 1 || !mpeEnabled) {
+                    updateModwheelUI(validData2);
+                }
+            } else if (validData1 === 10) {
+                console.log(`kasm: 🔄 Pan (Ch ${channel}): ${validData2}`);
+                // In MPE mode, only update global UI from channel 1 (master channel)
+                // In non-MPE mode, accept from any channel
+                if (channel === 1 || !mpeEnabled) {
+                    updatePanUI(validData2);
+                }
+            } else if (validData1 === 64) {
+                console.log(`kasm: 🦶 Sustain Pedal (Ch ${channel}): ${validData2 >= 64 ? 'ON' : 'OFF'}`);
+            }
+
+        } else if (messageType === 0xC0) {
+            // Program Change
+            console.log(`kasm: 🎼 Program Change: ${validData1} - Channel: ${channel}`);
+
+        } else if (messageType === 0xE0) {
+            // Pitch Bend
+            const pitchBend = (validData2 << 7) | validData1;
+            const pitchBendCentered = pitchBend - 8192; // Center around 0
+            console.log(`kasm: Pitch Bend: ${pitchBend} (${pitchBendCentered > 0 ? '+' : ''}${pitchBendCentered}) - Channel: ${channel}`);
+
+        } else if (messageType === 0xD0) {
+            // Polyphonic Key Pressure (Aftertouch) - Handle as note events for MPE keyboards
+            const noteNumber = validData1;
+            const pressure = validData2;
+            const noteName = getNoteName(noteNumber);
+
+            console.log(`kasm: Polyphonic Aftertouch: ${noteName} (MIDI ${noteNumber}) - Pressure: ${pressure} - Channel: ${channel}`);
+
+            // Store pressure in channel state for MPE
+            channelState.channelPressure = pressure;
+
+            // If pressure > 0, treat as Note On; if pressure = 0, treat as Note Off
+            if (pressure > 0) {
+                console.log(`kasm: �� Interpreting aftertouch as Note ON: ${noteName} (MIDI ${noteNumber}) - Pressure: ${pressure} - Channel: ${channel}`);
+
+                // Track active note in MPE channel state
+                channelState.activeNotes.add(noteNumber);
+
+                // Use a reasonable velocity instead of low pressure values
+                // If pressure is very low, use the velocity from the UI or a default
+                let effectiveVelocity = pressure;
+                if (pressure < 30) {
+                    // Use the current velocity setting from the UI for low pressure values
+                    effectiveVelocity = parseInt(document.getElementById('velocity').value) || 100;
+                    console.log(`kasm: ⚡ Low pressure (${pressure}), using UI velocity: ${effectiveVelocity}`);
+                }
+
+                // Trigger WASM function with effective velocity
+                processNoteEvent(noteNumber, effectiveVelocity);
+
+                // Add visual piano key feedback
+                highlightMidiNoteOnKeyboard(noteNumber, true);
+
+                // Send to current MIDI output if connected
+                if (currentMidiOutput) {
+                    console.log(`kasm: Forwarding aftertouch-based note to output device: "${currentMidiOutput.name}"`);
+                    const noteOnMsg = [0x90 + (parseInt(document.getElementById('midiChannel').value) || 0), noteNumber, effectiveVelocity];
+                    sendMidiData(noteOnMsg, noteNumber, effectiveVelocity);
+                }
+            } else {
+                console.log(`kasm: 🎹 Interpreting aftertouch as Note OFF: ${noteName} (MIDI ${noteNumber}) - Channel: ${channel}`);
+
+                // Process note off event
+                processNoteEvent(noteNumber, 0);
+
+                // Remove visual piano key feedback
+                highlightMidiNoteOnKeyboard(noteNumber, false);
+
+                // Remove from active notes in MPE channel state
+                channelState.activeNotes.delete(noteNumber);
+
+                // Send MIDI note off if connected
+                if (currentMidiOutput) {
+                    const noteOffMsg = [0x80 + (parseInt(document.getElementById('midiChannel').value) || 0), noteNumber, 64];
+                    sendMidiData(noteOffMsg, noteNumber, 0);
+                }
+            }
+
+        } else if (messageType === 0xF0) {
+            // System messages
+            console.log(`kasm: System message: 0x${status.toString(16)}`);
+
+        } else {
+            // Other message types
+            console.log(`kasm: Other MIDI message: Type=0x${messageType.toString(16)}, Data1=${validData1}, Data2=${validData2} - Channel: ${channel}`);
+        }
+    }
+
+    // Helper function to get note name from MIDI number
+    function getNoteName(noteNumber) {
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const octave = Math.floor(noteNumber / 12) - 1;
+        const noteName = noteNames[noteNumber % 12];
+        return `${noteName}${octave}`;
+    }
+
+    // Helper function to get CC name from CC number
+    function getCCName(ccNumber) {
+        const ccNames = {
+            0: 'Bank Select MSB',
+            1: 'Modulation Wheel',
+            2: 'Breath Controller',
+            4: 'Foot Controller',
+            5: 'Portamento Time',
+            6: 'Data Entry MSB',
+            7: 'Channel Volume',
+            8: 'Balance',
+            10: 'Pan',
+            11: 'Expression Controller',
+            12: 'Effect Control 1',
+            13: 'Effect Control 2',
+            32: 'Bank Select LSB',
+            64: 'Sustain Pedal',
+            65: 'Portamento On/Off',
+            66: 'Sostenuto',
+            67: 'Soft Pedal',
+            68: 'Legato Footswitch',
+            69: 'Hold 2',
+            70: 'Sound Controller 1',
+            71: 'Sound Controller 2',
+            72: 'Sound Controller 3',
+            73: 'Sound Controller 4',
+            74: 'Sound Controller 5',
+            75: 'Sound Controller 6',
+            76: 'Sound Controller 7',
+            77: 'Sound Controller 8',
+            78: 'Sound Controller 9',
+            79: 'Sound Controller 10',
+            120: 'All Sound Off',
+            121: 'Reset All Controllers',
+            122: 'Local Control On/Off',
+            123: 'All Notes Off',
+            124: 'Omni Mode Off',
+            125: 'Omni Mode On',
+            126: 'Mono Mode On',
+            127: 'Poly Mode On'
+        };
+        return ccNames[ccNumber] || `CC ${ccNumber}`;
+    }
+
+    // Update modwheel UI from MIDI input
+    function updateModwheelUI(value) {
+        const modwheelSlider = document.getElementById('modwheel');
+        const modwheelValueBox = document.getElementById('modwheel-value');
+        if (modwheelSlider && modwheelValueBox) {
+            modwheelSlider.value = value;
+            modwheelValueBox.value = value;
+        }
+    }
+
+    // Update pan UI from MIDI input
+    function updatePanUI(value) {
+        const panSlider = document.getElementById('pan');
+        const panValueBox = document.getElementById('pan-value');
+        if (panSlider && panValueBox) {
+            panSlider.value = value;
+            panValueBox.value = value;
+        }
+    }
+
+    // Update MIDI device list - Enhanced with device type indication
+    function updateMidiDeviceList() {
+        console.log('kasm: Updating MIDI device list in UI...');
+        const select = document.getElementById('midiOutputSelect');
+        const currentValue = select.value;
+
+        // Clear existing options except the first one
+        select.innerHTML = '<option value="">Select MIDI Device...</option>';
+
+        if (midiAccess) {
+            const inputs = Array.from(midiAccess.inputs.values());
+            midiOutputs = Array.from(midiAccess.outputs.values());
+
+            console.log(`kasm: Populating device list: ${inputs.length} inputs, ${midiOutputs.length} outputs`);
+
+            // Add input devices (for information only - they can't be selected for output)
+            inputs.forEach((input, index) => {
+                const option = document.createElement('option');
+                option.value = `input-${index}`;
+                option.disabled = true; // Can't select input devices for output
+                option.style.color = '#666';
+                option.style.fontStyle = 'italic';
+                const statusIcon = input.state === 'connected' ? '🟢' : '🔴';
+                option.textContent = `${statusIcon} INPUT: ${input.name} (${input.manufacturer || 'Unknown'}) - ${input.state}`;
+                select.appendChild(option);
+            });
+
+            // Add separator if we have both inputs and outputs
+            if (inputs.length > 0 && midiOutputs.length > 0) {
+                const separator = document.createElement('option');
+                separator.disabled = true;
+                separator.textContent = '────────────────────────────';
+                select.appendChild(separator);
+            }
+
+            // Add output devices (selectable)
+            midiOutputs.forEach((output, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                const statusIcon = output.state === 'connected' ? '🟩' : '🟥';
+                const connectionIcon = output.connection === 'open' ? '🟩' : '🟪';
+                option.textContent = `${statusIcon}${connectionIcon} OUTPUT: ${output.name} (${output.manufacturer || 'Unknown'}) - ${output.state}`;
+
+                // Style based on device state
+                if (output.state === 'connected') {
+                    option.style.color = '#2e7d32'; // Green for connected
+                    option.style.fontWeight = 'bold';
+                } else {
+                    option.style.color = '#d32f2f'; // Red for disconnected
+                }
+
+                select.appendChild(option);
+                console.log(`kasm: Added OUTPUT device to list: "${output.name}" (index: ${index}, state: ${output.state})`);
+            });
+
+            // Restore previous selection if still available, or from saved settings
+            const targetValue = currentValue || window.savedMidiDeviceIndex;
+            if (targetValue && targetValue !== '' && midiOutputs[targetValue]) {
+                select.value = targetValue;
+                currentMidiOutput = midiOutputs[targetValue];
+                selectMidiDevice(); // Update the status display
+                console.log(`kasm: Restored previous device selection: "${currentMidiOutput.name}"`);
+                // Clear the saved index since we've used it
+                window.savedMidiDeviceIndex = null;
+            }
+
+            // Update status message
+            const totalDevices = inputs.length + midiOutputs.length;
+            if (totalDevices === 0) {
+                document.getElementById('playbackStatus').textContent = 'No MIDI devices found';
+                console.log('kasm: No MIDI devices available');
+            } else if (midiOutputs.length === 0) {
+                document.getElementById('playbackStatus').textContent = `${inputs.length} input(s) found, no outputs`;
+                console.log(`kasm: Found ${inputs.length} input device(s) but no output devices`);
+            } else {
+                document.getElementById('playbackStatus').textContent = `${midiOutputs.length} output(s) available`;
+                console.log(`kasm: Device list updated: ${totalDevices} total devices (${inputs.length} inputs, ${midiOutputs.length} outputs)`);
+            }
+        } else {
+            document.getElementById('playbackStatus').textContent = 'MIDI not initialized';
+            console.log('kasm: MIDI access not available for device list update');
+        }
+    }
+
+    // Handle MIDI device selection
+    function selectMidiDevice() {
+        const select = document.getElementById('midiOutputSelect');
+        const selectedIndex = select.value;
+
+        if (selectedIndex !== '' && midiOutputs[selectedIndex]) {
+            currentMidiOutput = midiOutputs[selectedIndex];
+            document.getElementById('playbackStatus').textContent =
+                `ok`;
+        } else {
+            currentMidiOutput = null;
+            document.getElementById('playbackStatus').textContent = 'No device selected';
+        }
+    }
+
+    // Send MIDI note on
+    function sendNoteOn(pitch, velocity, channel = 0) {
+        if (!currentMidiOutput) return;
+
+        const noteOnMsg = [0x90 + channel, pitch, velocity];
+        currentMidiOutput.send(noteOnMsg);
+
+        const keyChar = Object.keys(keyboardMapping).find(k => 60 + keyboardMapping[k] + midikeys_semitone_or_cc === pitch);
+        if (keyChar) {
+            const pianoKey = document.querySelector(`[data-key="${keyChar}"]`);
+            if (pianoKey) {
+                pianoKey.setAttribute('fill', 'lime');
+            }
+        }
+
+        try {
+            const result = bang(inlet_0, inlet_1, inlet_2, inlet_3, inlet_4, inlet_5);
+        } catch (err) {
+            console.error('kasm: Error in run_test_keyboard:', err);
+        }
+
+    }
+
+    // Send MIDI note off
+    function sendNoteOff(pitch, channel = 0, velocity = 64) {
+        if (!currentMidiOutput) return;
+
+        const noteOffMsg = [0x80 + channel, pitch, velocity];
+        currentMidiOutput.send(noteOffMsg);
+
+        // Restore SVG piano key color
+        const keyChar = Object.keys(keyboardMapping).find(k => 60 + keyboardMapping[k] + midikeys_semitone_or_cc === pitch);
+        if (keyChar) {
+            const pianoKey = document.querySelector(`[data-key="${keyChar}"]`);
+            if (pianoKey) {
+                if (pianoKey.classList.contains('white-key')) {
+                    pianoKey.setAttribute('fill', 'white');
+                    pianoKey.setAttribute('stroke', '#333');
+                    pianoKey.setAttribute('stroke-width', '1');
+                } else {
+                    pianoKey.setAttribute('fill', '#333');
+                    pianoKey.setAttribute('stroke', '#000');
+                    pianoKey.setAttribute('stroke-width', '1');
+                }
+            }
+        }
+
+        try {
+            const result = bang(inlet_0, inlet_1, 0, inlet_3, inlet_4, inlet_5);
+        } catch (err) {
+            console.error('kasm: Error in run_test_keyboard:', err);
+        }
+
+    }
+
+    // Send all notes off (panic)
+    function sendAllNotesOff(channel = 0) {
+        if (!currentMidiOutput) return;
+
+        // Send All Notes Off CC message
+        const allNotesOffMsg = [0xB0 + channel, 123, 0];
+        currentMidiOutput.send(allNotesOffMsg);
+
+        // Also send individual note offs for all possible notes as backup
+        for (let note = 0; note <= 127; note++) {
+            sendNoteOff(note, channel);
+        }
+    }
+
+    // Process note event for detection and UI update
+    function processNoteEvent(pitch, velocity) {
+        // Set globals for detection logic
+        midikeys_note = pitch;
+        midikeys_velocity = velocity;
+        run_test_keyboard();
+    }
+
+    // Stop MIDI playback
+    function stopMidiPlayback() {
+        isPlaying = false;
+
+        // Clear all scheduled timeouts
+        playbackTimeouts.forEach(timeout => clearTimeout(timeout));
+        playbackTimeouts = [];
+
+        // Send all notes off to stop any hanging notes
+        const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+        sendAllNotesOff(channel);
+
+        // Re-enable play button
+        document.getElementById('playMidi').disabled = false;
+
+        if (document.getElementById('playbackStatus').textContent === 'Playing...') {
+            document.getElementById('playbackStatus').textContent = 'Stopped';
+        }
+    }
+
+    // Event listeners for WebMIDI controls
+    document.getElementById('midiOutputSelect').addEventListener('change', () => {
+        selectMidiDevice();
+        autoSaveSettings();
+    });
+    document.getElementById('midiChannel').addEventListener('change', autoSaveSettings);
+    document.getElementById('tempo').addEventListener('change', autoSaveSettings);
+    document.getElementById('refreshMidiDevices').addEventListener('click', updateMidiDeviceList);
+    document.getElementById('stopMidi').addEventListener('click', stopMidiPlayback);
+
+    // Event listeners for all input controls to auto-save settings
+    document.getElementById('inlet_5_emanator').addEventListener('change', autoSaveSettings);
+    document.getElementById('note').addEventListener('input', autoSaveSettings);
+    document.getElementById('semitone').addEventListener('input', autoSaveSettings);
+    document.getElementById('velocity').addEventListener('input', autoSaveSettings);
+    document.getElementById('enc1').addEventListener('input', autoSaveSettings);
+    document.getElementById('enc2').addEventListener('input', autoSaveSettings);
+    document.getElementById('rateMs').addEventListener('input', autoSaveSettings);
+    document.getElementById('noteName').addEventListener('input', autoSaveSettings);
+
+    // simulate Max4Live bangs
+    document.getElementById('inlet_5_emanator').addEventListener('change', updateBang);
+
+    // Initialize WebMIDI on page load
+    initializeMIDI();
+
+    // LocalStorage functions for saving/loading settings
+    function saveSettings() {
+        const settings = {
+            emanator: document.getElementById('inlet_5_emanator').value,
+            midiOutputSelect: document.getElementById('midiOutputSelect').value,
+            midiChannel: document.getElementById('midiChannel').value,
+            tempo: document.getElementById('tempo').value,
+            note: document.getElementById('note').value,
+            semitone: document.getElementById('semitone').value,
+            velocity: document.getElementById('velocity').value,
+            enc1: document.getElementById('enc1').value,
+            enc2: document.getElementById('enc2').value,
+            rateMs: document.getElementById('rateMs').value,
+        };
+
+        try {
+            localStorage.setItem('kasmSettings', JSON.stringify(settings));
+            console.log('kasm: Settings saved to localStorage');
+        } catch (err) {
+            console.warn('Failed to save settings to localStorage:', err);
+        }
+    }
+
+    function loadSettings() {
+        try {
+            const savedSettings = localStorage.getItem('kasmSettings');
+            if (!savedSettings) return false;
+
+            const settings = JSON.parse(savedSettings);
+            console.log('kasm: Loading settings from localStorage:', settings);
+
+            // Restore all form values
+            if (settings.inputJson) document.getElementById('inputJson').value = settings.inputJson;
+            if (settings.emanator) document.getElementById('inlet_5_emanator').value = settings.emanator;
+            if (settings.midiChannel) document.getElementById('midiChannel').value = settings.midiChannel;
+            if (settings.tempo) document.getElementById('tempo').value = settings.tempo;
+            if (settings.note) document.getElementById('note').value = settings.note;
+            if (settings.semitone) document.getElementById('semitone').value = settings.semitone;
+            if (settings.velocity) document.getElementById('velocity').value = settings.velocity;
+            if (settings.enc1) document.getElementById('enc1').value = settings.enc1;
+            if (settings.enc2) document.getElementById('enc2').value = settings.enc2;
+            if (settings.rateMs) document.getElementById('rateMs').value = settings.rateMs;
+            if (settings.exampleSelect) document.getElementById('exampleSelect').value = settings.exampleSelect;
+
+            // Update all dials to match restored values
+            updateDial('note', settings.note || 60);
+            updateDial('semitone', settings.semitone || 0);
+            updateDial('velocity', settings.velocity || 100);
+            updateDial('enc1', settings.enc1 || 100);
+            updateDial('enc2', settings.enc2 || 80);
+            updateDial('rate', settings.rateMs || 250);
+
+            // Update note display
+            updateNoteDisplay();
+
+            // Restore MIDI device selection (will be applied when devices are available)
+            if (settings.midiOutputSelect) {
+                // Store for later when MIDI devices are loaded
+                window.savedMidiDeviceIndex = settings.midiOutputSelect;
+            }
+
+            return true;
+        } catch (err) {
+            console.warn('Failed to load settings from localStorage:', err);
+            return false;
+        }
+    }
+
+    function clearSettings() {
+        try {
+            localStorage.removeItem('kasmSettings');
+            console.log('kasm: Settings cleared from localStorage');
+        } catch (err) {
+            console.warn('Failed to clear settings from localStorage:', err);
+        }
+    }
+
+    function updateBang() {
+        setTimeout(() => {
+            console.log('kasm: updateBang');
+            midikeys_note = 60;
+            midikeys_velocity = 100;
+            encodersChanged = true;
+            run_test_keyboard();
+
+            // Simulate pressing and releasing the 'a' key
+            const bangDown = new KeyboardEvent('keydown', {key: 'a', code: 'KeyA', keyCode: 65, bubbles: true});
+            const bangUp = new KeyboardEvent('keyup', {key: 'a', code: 'KeyA', keyCode: 65, bubbles: true});
+            document.dispatchEvent(bangDown);
+            document.dispatchEvent(bangUp);
+        }, 400);
+    }
+
+    // Auto-save settings whenever any input changes
+    function autoSaveSettings() {
+        // Debounce saving to avoid excessive localStorage writes
+        clearTimeout(window.saveSettingsTimeout);
+        window.saveSettingsTimeout = setTimeout(saveSettings, 100);
+        updateBang();
+    }
+
+    // "metro 10" Periodically call msg_int every 10ms
+    setInterval(function() {
+        if (typeof msg_float === 'function') {
+            inlet = 6;
+            msg_float(document.getElementById('tempo').value);
+        }
+    }, 10);
+
+    document.getElementById('inlet_5_emanator').addEventListener('change', function() {
+        // Deselect all radio buttons for emanatorQuick
+        const radios = document.getElementsByName('emanatorQuick');
+        radios.forEach(radio => radio.checked = false);
+
+        // Only call updateBang if this is not a radio button selection
+        if (!isRadioButtonSelection) {
+            updateBang();
+            isRadioButtonSelection = false;
+        }
+
+        // Show drum/loop pattern when drum: or loop: is selected
+        showPatternPreview();
+
+        saveSettings();
+    });
+
+    // Modwheel slider event listeners and MIDI CC sending
+    const modwheelSlider = document.getElementById('modwheel');
+    const modwheelValueBox = document.getElementById('modwheel-value');
+    if (modwheelSlider && modwheelValueBox) {
+        // Sync slider and number box
+        modwheelSlider.addEventListener('input', function() {
+            modwheelValueBox.value = modwheelSlider.value;
+            sendModwheelCC(parseInt(modwheelSlider.value));
+        });
+        modwheelValueBox.addEventListener('input', function() {
+            let val = Math.max(0, Math.min(127, parseInt(modwheelValueBox.value) || 0));
+            modwheelSlider.value = val;
+            sendModwheelCC(val);
+        });
+    }
+    function sendModwheelCC(value) {
+        // CC #1 is modwheel
+        if (currentMidiOutput) {
+            const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+            const ccMsg = [0xB0 + channel, 1, value];
+            currentMidiOutput.send(ccMsg);
+        }
+    }
+    // Pan slider event listeners and MIDI CC sending
+    const panSlider = document.getElementById('pan');
+    const panValueBox = document.getElementById('pan-value');
+    if (panSlider && panValueBox) {
+        panSlider.addEventListener('input', function() {
+            panValueBox.value = panSlider.value;
+            sendPanCC(parseInt(panSlider.value));
+        });
+        panValueBox.addEventListener('input', function() {
+            let val = Math.max(0, Math.min(127, parseInt(panValueBox.value) || 64));
+            panSlider.value = val;
+            sendPanCC(val);
+        });
+    }
+    function sendPanCC(value) {
+        // CC #10 is pan
+        if (currentMidiOutput) {
+            const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+            const ccMsg = [0xB0 + channel, 10, value];
+            currentMidiOutput.send(ccMsg);
+        }
+    }
+
+    // SVG Piano Keyboard Interaction
+    function initializePianoKeyboard() {
+        const pianoKeys = document.querySelectorAll('.piano-key');
+
+        pianoKeys.forEach(key => {
+            const noteOffset = parseInt(key.getAttribute('data-note'));
+            const keyChar = key.getAttribute('data-key');
+
+            // Mouse events
+            key.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                playPianoKey(noteOffset, keyChar);
+            });
+
+            key.addEventListener('mouseup', (e) => {
+                e.preventDefault();
+                stopPianoKey(noteOffset, keyChar);
+            });
+
+            // Touch events for mobile
+            key.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                playPianoKey(noteOffset, keyChar);
+            });
+
+            key.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                stopPianoKey(noteOffset, keyChar);
+            });
+
+            // Visual feedback on hover
+            key.addEventListener('mouseenter', () => {
+                if (key.classList.contains('white-key')) {
+                    key.setAttribute('fill', '#f0f0f0');
+                } else {
+                    key.setAttribute('fill', '#555');
+                }
+            });
+
+            key.addEventListener('mouseleave', () => {
+                if (key.classList.contains('white-key')) {
+                    key.setAttribute('fill', 'white');
+                } else {
+                    key.setAttribute('fill', '#333');
+                }
+            });
+        });
+    }
+
+    function playPianoKey(noteOffset, keyChar) {
+        const baseNote = 60; // Middle C
+        const currentOctave = Math.floor(midikeys_semitone_or_cc / 12);
+        const finalNote = baseNote + noteOffset + midikeys_semitone_or_cc;
+        const clampedNote = Math.max(0, Math.min(127, finalNote));
+
+        // Visual feedback
+        const key = document.querySelector(`[data-key="${keyChar}"]`);
+        if (key) {
+            if (key.classList.contains('white-key')) {
+                key.setAttribute('fill', '#ddd');
+            } else {
+                key.setAttribute('fill', '#666');
+            }
+        }
+
+        // Play the note
+        midikeys_note = clampedNote;
+        midikeys_velocity = parseInt(document.getElementById('velocity').value) || 100;
+        processNoteEvent(midikeys_note, midikeys_velocity);
+
+        // Also send MIDI if device is connected
+        if (currentMidiOutput) {
+            const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+            sendNoteOn(midikeys_note, midikeys_velocity, channel);
+        }
+    }
+
+    function stopPianoKey(noteOffset, keyChar) {
+        const baseNote = 60;
+        const finalNote = baseNote + noteOffset + midikeys_semitone_or_cc;
+        const clampedNote = Math.max(0, Math.min(127, finalNote));
+
+        // Visual feedback
+        const key = document.querySelector(`[data-key="${keyChar}"]`);
+        if (key) {
+            if (key.classList.contains('white-key')) {
+                key.setAttribute('fill', 'white');
+            } else {
+                key.setAttribute('fill', '#333');
+            }
+        }
+
+        // Stop the note
+        midikeys_note = clampedNote;
+        midikeys_velocity = 0;
+        run_test_keyboard();
+
+        // Also send MIDI note off if device is connected
+        if (currentMidiOutput) {
+            const channel = parseInt(document.getElementById('midiChannel').value) || 0;
+            sendNoteOff(clampedNote, channel);
+        }
+    }
+
+    // Enhanced keyboard event handlers to update display
+    const originalHandleKeyDown = handleKeyDown;
+    const originalHandleKeyUp = handleKeyUp;
+
+    handleKeyDown = function(event) {
+        const key = event.key.toLowerCase();
+        // Highlight corresponding piano key
+        let highlightKey = key;
+        if (key === '\\') highlightKey = 'y'; // Map backslash to G# key visually
+        const pianoKey = document.querySelector(`[data-key="${highlightKey}"]`);
+        if (pianoKey && !activeKeys.has(key)) {
+            if (pianoKey.classList.contains('white-key')) {
+                pianoKey.setAttribute('fill', '#ddd');
+            } else {
+                pianoKey.setAttribute('fill', '#666');
+            }
+        }
+        // Call original handler
+        originalHandleKeyDown(event);
+    };
+    handleKeyUp = function(event) {
+        const key = event.key.toLowerCase();
+        let highlightKey = key;
+        if (key === '\\') highlightKey = 'y'; // Map backslash to G# key visually
+        const pianoKey = document.querySelector(`[data-key="${highlightKey}"]`);
+        if (pianoKey) {
+            if (pianoKey.classList.contains('white-key')) {
+                pianoKey.setAttribute('fill', 'white');
+            } else {
+                pianoKey.setAttribute('fill', '#333');
+            }
+        }
+        // Call original handler
+        originalHandleKeyUp(event);
+    };
+
+    // Helper function to highlight MIDI notes on the SVG keyboard
+    function highlightMidiNoteOnKeyboard(midiNote, isNoteOn) {
+        // Convert MIDI note to note within octave (0-11)
+        const noteInOctave = midiNote % 12;
+
+        // Map note within octave to keyboard keys
+        const noteToKeyMapping = {
+            0: 'a',   // C
+            1: 'w',   // C#
+            2: 's',   // D
+            3: 'e',   // Eb
+            4: 'd',   // E
+            5: 'f',   // F
+            6: 't',   // F#
+            7: 'g',   // G
+            8: 'y',   // G#
+            9: 'h',   // A
+            10: 'u',  // Bb
+            11: 'j'   // B
+        };
+
+        // Extended mapping for second octave
+        const secondOctaveMapping = {
+            0: 'k',   // C
+            1: 'o',   // C#
+            2: 'l',   // D
+            3: 'p',   // Eb
+            4: ';',   // E
+            5: "'",   // F
+            6: ']',   // F#
+        };
+
+        // Find the corresponding key character
+        let keyChar = null;
+
+        // Try to map based on the current semitone offset and visible keyboard range
+        const currentSemitone = parseInt(document.getElementById('semitone').value) || 0;
+        const baseNote = 60 + currentSemitone; // Current base note (usually C4 + offset)
+
+        // Check if this MIDI note corresponds to our visible keyboard
+        const relativeNote = midiNote - baseNote;
+
+        if (relativeNote >= 0 && relativeNote <= 11) {
+            // First octave (a-j keys)
+            keyChar = noteToKeyMapping[relativeNote];
+        } else if (relativeNote >= 12 && relativeNote <= 18) {
+            // Second octave (k-] keys)
+            keyChar = secondOctaveMapping[relativeNote - 12];
+        } else {
+            // Try direct mapping based on note type (fallback)
+            keyChar = noteToKeyMapping[noteInOctave];
+        }
+
+        // Find and highlight the corresponding SVG piano key
+        if (keyChar) {
+            const pianoKey = document.querySelector(`[data-key="${keyChar}"]`);
+            if (pianoKey) {
+                if (pianoKey.getAttribute('fill') !== 'lime') {
+                    if (isNoteOn) {
+                        // Note On - highlight in yellow
+                        pianoKey.setAttribute('fill', '#ffeb3b');
+                        pianoKey.setAttribute('stroke', '#fbc02d');
+                        pianoKey.setAttribute('stroke-width', '2');
+                    } else {
+                        // Note Off - restore original color
+                        if (pianoKey.classList.contains('white-key')) {
+                            pianoKey.setAttribute('fill', 'white');
+                            pianoKey.setAttribute('stroke', '#333');
+                            pianoKey.setAttribute('stroke-width', '1');
+                        } else {
+                            pianoKey.setAttribute('fill', '#333');
+                            pianoKey.setAttribute('stroke', '#000');
+                            pianoKey.setAttribute('stroke-width', '1');
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Show pattern preview for drum: and loop: selections
+    function showPatternPreview() {
+        const emanatorValue = parseInt(document.getElementById('inlet_5_emanator').value);
+        const emanatorText = document.getElementById('inlet_5_emanator').options[document.getElementById('inlet_5_emanator').selectedIndex].text;
+
+        // Check if this is a drum: or loop: selection
+        if (emanatorText.startsWith('drum:') || emanatorText.startsWith('loop:')) {
+            console.log('kasm: Showing pattern preview for:', emanatorText);
+
+            // Try to get pattern from kasm_pattern_get_notes
+            if (typeof kasm_rust !== 'undefined' && typeof kasm_rust.kasm_pattern_get_notes === 'function') {
+                try {
+                    const steps = 16; // Default 16 steps
+                    const velocity = parseInt(document.getElementById('velocity').value) || 100;
+
+                    const patternResult = kasm_rust.kasm_pattern_get_notes(emanatorValue, steps, velocity);
+                } catch (err) {
+                    console.error('kasm: Error getting pattern preview:', err);
+                }
+            }
+        }
+    }
+
+    // Initialize piano keyboard when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePianoKeyboard();
+    });
+
+    // Also initialize if DOM is already loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializePianoKeyboard);
+    } else {
+        initializeKasmWebMIDI();
+        initializePianoKeyboard();
+    }
+
+    let midiChannelGlobal = 0;
+
+    function handleDeviceStateChange(e) {
+        if (e.type === 'deviceListChanged') {
+            const savedId = localStorage.getItem('selectedMidiOutput');
+            updateMidiDeviceDropdown(e.outputs, savedId);
+        } else if (e.type === 'autoReconnect' && e.output) {
+            updateMidiDeviceDropdown(kasmWebMIDI.getOutputDevices(), e.output.id);
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        kasmWebMIDI = new KasmWebMIDI();
+        kasmWebMIDI.setCallback('onDeviceStateChange', handleDeviceStateChange);
+        kasmWebMIDI.setCallback('onMIDIReady', () => {
+            // Initial device list update
+            updateMidiDeviceDropdown(kasmWebMIDI.getOutputDevices(), localStorage.getItem('selectedMidiOutput'));
+        });
+
+        // Device selection handler
+        document.getElementById('midiOutputSelect').addEventListener('change', (e) => {
+            const selectedId = e.target.value;
+            const outputs = kasmWebMIDI.getOutputDevices();
+            const found = outputs.find(o => o.id === selectedId);
+            if (found) {
+                kasmWebMIDI.currentMidiOutput = found;
+                localStorage.setItem('selectedMidiOutput', found.id);
+            }
+        });
+
+        // MIDI channel selection
+        document.getElementById('midiChannel').addEventListener('change', (e) => {
+            midiChannelGlobal = parseInt(e.target.value) || 0;
+        });
+
+        // Refresh button
+        document.getElementById('refreshMidiDevices').addEventListener('click', () => {
+            updateMidiDeviceDropdown(kasmWebMIDI.getOutputDevices(), localStorage.getItem('selectedMidiOutput'));
+        });
+    });
+</script>
+</html>
