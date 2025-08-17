@@ -1,2 +1,3 @@
-# arpy
-Kasm Arpeggiator Browser and Editor Tool
+# Arpy
+
+This is the Arpy MIDI Arpeggiator Editor app, split for submodule use.
