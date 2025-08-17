@@ -2,9 +2,9 @@ import React from 'react';
 
 const Arpy: React.FC = () => {
   return (
-    <div className="arpy-main-ui" style={{ padding: '2em' }}>
+    <div className="arpy-main-ui" data-testid="arpy-root" style={{ padding: '2em' }}>
       <h1 style={{ fontSize: '2.5em', marginBottom: '0.5em' }}>Arpy MIDI Arpeggiator Editor</h1>
-      <p style={{ color: '#00796b', marginBottom: '2em' }}>
+      <p style={{ marginBottom: '2em' }}>
         WebMIDI Arpeggiator Editor Tool.<br />
         <em>Mechanism to view arpeggiators and edit them coming soon...</em>
       </p>
@@ -13,4 +13,3 @@ const Arpy: React.FC = () => {
 };
 
 export default Arpy;
-
