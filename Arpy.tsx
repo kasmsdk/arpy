@@ -5,6 +5,8 @@ const Arpy: React.FC = () => {
     return (
         <div style={{ padding: '2em' }}>
             WebMIDI Arpy arpeggios pattern Browser and Editor Tool.<br />
+            <p className="sunken-paragraph">
+                Arpy is a collection of arpeggios that are play whilst keys are held or are latched to keep playing out</p>
             <div style={{ margin: '20px 0' }}>
                 <div>
                     Connect to your MIDI device... (you might need a <a href="https://help.ableton.com/hc/en-us/articles/209774225-Setting-up-a-virtual-MIDI-bus" target="_blank">virtual MIDI bus</a>)
