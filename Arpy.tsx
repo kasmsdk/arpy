@@ -1,5 +1,6 @@
 import React from 'react';
 import MidiSelector from '../components/MidiSelector';
+import ArpyCanvas from './ArpyCanvas';
 
 const Arpy: React.FC = () => {
     return (
@@ -15,16 +16,12 @@ const Arpy: React.FC = () => {
                     <MidiSelector />
                 </p>
             </div>
-            <div style={{ marginTop: '2rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
-                <iframe
-                    src="https://kasmsdk.github.io/latest/arpy.html"
-                    title="Kasm Demo"
-                    width="90%"
-                    height="1024"
-                    style={{ border: '2px solid #ccc', borderRadius: '12px', boxShadow: '0 2px 16px rgba(0,0,0,0.12)' }}
-                    allowFullScreen
-                />
+            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', margin: '40px 0' }}>
+                <ArpyCanvas title="Arpy Canvas 1" />
+                <ArpyCanvas title="Arpy Canvas 2" />
+                <ArpyCanvas title="Arpy Canvas 3" />
             </div>
+
 
         </div>
     );
