@@ -1,6 +1,6 @@
 import React from 'react';
-import MidiSelector from '../components/MidiSelector';
-import ArpyCanvas from '../components/ArpyCanvas';
+import MidiSelector from '../latest/MidiSelector';
+import ArpyCanvas from '../latest/ArpyCanvas';
 
 const Arpy: React.FC = () => {
     return (
