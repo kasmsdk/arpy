@@ -1,8 +1,24 @@
 import React from 'react';
 import MidiSelector from '../latest/MidiSelector';
 import ArpyCanvas from '../latest/ArpyCanvas';
+import NewsNewFeatures from '../src/components/NewsNewFeatures';
+import LatestDemo from '../src/components/LatestDemo';
+import MidiKeyboard from '../src/components/MidiKeyboard';
 
 const Arpy: React.FC = () => {
+    // Handler for note on
+    const handleNoteOn = (note: number, velocity: number) => {
+        window.inlet_5_emanator = 'Arpy';
+        if (typeof window.update_canvas_data === 'function') {
+            window.update_canvas_data({ note, velocity });
+        }
+    };
+    // Handler for note off
+    const handleNoteOff = (note: number) => {
+        if (typeof window.update_canvas_data === 'function') {
+            window.update_canvas_data({ note, velocity: 0 });
+        }
+    };
     return (
         <div className="kasm-landing-container">
             <h1>Arpy arpeggio pattern Browser and Editor Tool</h1>
@@ -18,21 +34,13 @@ const Arpy: React.FC = () => {
             </div>
             <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', margin: '40px 0' }}>
                 <ArpyCanvas title="Arpy Canvas 1" />
-                <ArpyCanvas title="Arpy Canvas 2" />
-                <ArpyCanvas title="Arpy Canvas 3" />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0' }}>
+                <MidiKeyboard onNoteOn={handleNoteOn} onNoteOff={handleNoteOff} />
             </div>
 
-
-            <div style={{ marginTop: '2rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
-                <iframe
-                    src="https://kasmsdk.github.io/latest/arpy.html"
-                    title="Kasm Demo"
-                    width="90%"
-                    height="1024"
-                    style={{ border: '2px solid #ccc', borderRadius: '12px', boxShadow: '0 2px 16px rgba(0,0,0,0.12)' }}
-                    allowFullScreen
-                />
-            </div>
+            <NewsNewFeatures />
+            <LatestDemo />
 
 
         </div>
