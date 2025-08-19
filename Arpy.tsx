@@ -3,7 +3,7 @@ import MidiSelector from '../components/MidiSelector';
 
 const Arpy: React.FC = () => {
     return (
-        <div style={{ padding: '2em' }}>
+        <div className="kasm-landing-container">
             <h1>Arpy arpeggio pattern Browser and Editor Tool</h1>
             <p className="sunken-paragraph">
                 Arpy is a collection of arpeggios that are play whilst keys are held or are latched to keep playing out</p>
