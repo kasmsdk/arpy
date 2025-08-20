@@ -45,6 +45,9 @@ const Arpy: React.FC = () => {
             <h1>Arpy arpeggio pattern Browser and Editor Tool</h1>
             <p>
                 Arpy is a collection of arpeggios that play whilst keys are held or are latched to keep playing out</p>
+
+            <LatestDemoArpy />
+
             <p>
                 Pattern gallery/browser<br/>
                 {arpyCanvasRefs.current.map((ref, idx) => (
@@ -60,8 +63,6 @@ const Arpy: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0' }}>
                 <MidiKeyboard onNoteOn={handleNoteOn} onNoteOff={handleNoteOff} />
             </div>
-
-            <LatestDemoArpy />
 
         </div>
     );
