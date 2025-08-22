@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import MidiSelector from '../latest/MidiSelector';
 import ArpyCanvas from '../latest/ArpyCanvas';
 import type { ArpyCanvasHandle } from '../latest/ArpyCanvas';
-import LatestDemoArpy from '../src/components/LatestDemoArpy';
+import LatestDemo from '../src/components/LatestDemo';
 import MidiKeyboard from '../src/components/MidiKeyboard';
 
 // Extend window type for inlet_5_emanator
@@ -12,7 +12,7 @@ declare global {
     }
 }
 
-const NUM_CANVASES = 10; // Easily changeable for arbitrary number
+const NUM_CANVASES = 16; // Easily changeable for arbitrary number
 
 const Arpy: React.FC = () => {
     // Store MIDI data in state
@@ -22,12 +22,13 @@ const Arpy: React.FC = () => {
     const arpyCanvasRefs = useRef(refsArray);
     // Handler for note on
     const handleNoteOn = (note: number, velocity: number) => {
-        window.inlet_5_emanator = '1';
         setMidiData({ note, velocity, isCC: false });
         arpyCanvasRefs.current.forEach(ref => {
             if (ref.current) {
-                ref.current.callKasmFunction('update_canvas_data', { pitch: note, velocity, cc: false });
-                ref.current.postHello();
+                ref.current.setInlets( { pitch: note, velocity, cc: false });
+
+                // This will also show the current note played
+                //ref.current.callKasmFunction('update_canvas_data', { pitch: note, velocity, cc: false });
             }
         });
     };
@@ -36,26 +37,31 @@ const Arpy: React.FC = () => {
         setMidiData({ note, velocity: 0, isCC: false });
         arpyCanvasRefs.current.forEach(ref => {
             if (ref.current) {
-                ref.current.callKasmFunction('update_canvas_data', { pitch: note, velocity: 0, cc: false });
+                ref.current.setInlets({ pitch: note, velocity: 0, cc: false });
+
+                // This will also show the current note played (off)
+                // ref.current.callKasmFunction('update_canvas_data', { pitch: note, velocity: 0, cc: false });
             }
         });
     };
     return (
         <div className="kasm-landing-container">
-            <h1>Arpy arpeggio pattern Browser and Editor Tool</h1>
+            <h1>Arpy MIDI Pattern Browser and Editor Tool</h1>
             <p>
-                Arpy is a collection of arpeggios that play whilst keys are held or are latched to keep playing out</p>
+                Arpy is a collection of MIDI note patterns with CC articulations that continue playing, the concept
+                of emanators is used in other contexts such as arpeggiators, and loops as they are all have similar results</p>
 
-            <LatestDemoArpy />
+            <LatestDemo />
 
-            <p>
+            <p style={{ maxHeight: '400px', overflowY: 'auto', display: 'block' }}>
                 Pattern gallery/browser<br/>
                 {arpyCanvasRefs.current.map((ref, idx) => (
                     <ArpyCanvas
                         key={idx}
                         ref={ref}
-                        title={`Arpy Canvas ${idx + 1}`}
+                        title={`Arpy ${idx + 1}`}
                         midiData={midiData}
+                        inlet_5_emanator={idx}
                     />
                 ))}
             </p>
@@ -64,6 +70,29 @@ const Arpy: React.FC = () => {
                 <MidiKeyboard onNoteOn={handleNoteOn} onNoteOff={handleNoteOff} />
             </div>
 
+            <p>
+                What is an emanator? Effectively it is a Rust function that is called upon to generate notes, each Arpy
+                function has some common parameters like the root note and velocity to go on and a couple of generic encoders
+                that change purpose depending on what the emanator is expected to do</p>
+
+            <p>
+                The file structure of Arpys is as follows, again there is no right or wrong way here...
+                <ul>
+                    <li>arpeggiation.rs</li>
+                    <li>experimental.rs</li>
+                    <li>lfo.rs</li>
+                    <li>mathematical.rs</li>
+                    <li>mod.rs</li>
+                    <li>responsorial.rs</li>
+                    <li>spatial.rs</li>
+                    <li>drumpattern.rs</li>
+                    <li>harmonic.rs</li>
+                    <li>loopcounterpoint.rs</li>
+                    <li>melodic.rs</li>
+                    <li>progressions.rs</li>
+                    <li>rhythmic.rs</li>
+                </ul>
+            </p>
         </div>
     );
 };
