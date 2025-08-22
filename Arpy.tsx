@@ -32,6 +32,17 @@ const Arpy: React.FC = () => {
             }
         });
     };
+    // Simulate MIDI note-on for middle C on mount and repeat every 5 seconds
+    React.useEffect(() => {
+        setTimeout(() => {
+            handleNoteOn(48, 100); // C
+            handleNoteOn(52, 100); // E
+            handleNoteOn(55, 100); // G
+            handleNoteOn(60, 100); // C (octave)
+            handleNoteOn(64, 100); // E (octave)
+            handleNoteOn(67, 100); // G (octave)
+        }, 1000);
+    }, []);
     // Handler for note off
     const handleNoteOff = (note: number) => {
         setMidiData({ note, velocity: 0, isCC: false });
