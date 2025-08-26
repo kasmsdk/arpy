@@ -4,6 +4,7 @@ import ArpyCanvas from '../latest/ArpyCanvas';
 import type { ArpyCanvasHandle } from '../latest/ArpyCanvas';
 import LatestDemo from '../src/components/LatestDemo';
 import MidiKeyboard from '../src/components/MidiKeyboard';
+import LatestDemoArpy from "../src/components/LatestDemoArpy";
 
 // Extend window type for inlet_5_emanator
 declare global {
@@ -62,7 +63,7 @@ const Arpy: React.FC = () => {
                 Arpy is a collection of MIDI note patterns with CC articulations that continue playing, the concept
                 of emanators is used in other contexts such as arpeggiators, and loops as they are all have similar results</p>
 
-            <LatestDemo />
+            <LatestDemoArpy />
 
             <p style={{ maxHeight: '400px', overflowY: 'auto', display: 'block' }}>
                 Pattern gallery/browser<br/>
