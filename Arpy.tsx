@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import MidiSelector from '../latest/MidiSelector';
 import ArpyCanvas from '../latest/ArpyCanvas';
 import type { ArpyCanvasHandle } from '../latest/ArpyCanvas';
-import LatestDemo from '../src/components/LatestDemo';
 import MidiKeyboard from '../src/components/MidiKeyboard';
 import LatestDemoArpy from "../src/components/LatestDemoArpy";
 
