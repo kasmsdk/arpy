@@ -61,7 +61,22 @@ const Arpy: React.FC = () => {
             <p>
                 Arpy is a collection of MIDI note patterns with CC articulations that continue playing, the concept
                 of emanators is used in other contexts such as arpeggiators, and loops as they are all have similar results</p>
-
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: '16px 0' }}>
+                <button
+                    className="kasm-demo-btn"
+                    title="Download this Arpeggiator as Ableton Live 12.2 M4L device"
+                    onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = '/latest/Kasm%20Arpy.amxd';
+                        link.download = 'Kasm Arpy.amxd';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }}
+                >
+                    ⬇️<br/>Kasm Arpy.amxd
+                </button>
+            </div>
             <LatestDemoArpy />
 
             <p style={{ maxHeight: '400px', overflowY: 'auto', display: 'block' }}>
