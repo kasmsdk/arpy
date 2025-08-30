@@ -63,7 +63,7 @@ const Arpy: React.FC = () => {
                 of emanators is used in other contexts such as arpeggiators, and loops as they are all have similar results</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: '16px 0' }}>
                 <button
-                    className="kasm-demo-btn"
+                    className="kasm-demo-btn-download"
                     title="Download this Arpeggiator as Ableton Live 12.2 M4L device"
                     onClick={() => {
                         const link = document.createElement('a');
